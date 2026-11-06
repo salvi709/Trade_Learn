@@ -1,0 +1,175 @@
+{
+  "entities": [
+    {
+      "name": "UserProfile",
+      "path": "users/{userId}",
+      "fields": [
+        { "name": "uid", "type": "string" },
+        { "name": "displayName", "type": "string" },
+        { "name": "username", "type": "string" },
+        { "name": "email", "type": "string" },
+        { "name": "photoURL", "type": "string" },
+        { "name": "avatarId", "type": "string" },
+        { "name": "birthday", "type": "string" },
+        { "name": "currency", "type": "string" },
+        { "name": "experienceLevel", "type": "string" },
+        { "name": "learningGoals", "type": "array" },
+        { "name": "theme", "type": "string" },
+        { "name": "onboardingCompleted", "type": "boolean" },
+        { "name": "appIntroductionCompleted", "type": "boolean" },
+        { "name": "guidedTourCompleted", "type": "boolean" },
+        { "name": "createdAt", "type": "string" },
+        { "name": "lastLoginAt", "type": "string" }
+      ]
+    },
+    {
+      "name": "UsernameMapping",
+      "path": "usernames/{username}",
+      "fields": [
+        { "name": "uid", "type": "string" },
+        { "name": "username", "type": "string" },
+        { "name": "updatedAt", "type": "string" }
+      ]
+    },
+    {
+      "name": "UserProgress",
+      "path": "users/{userId}/data/progress",
+      "fields": [
+        { "name": "overallProgress", "type": "number" },
+        { "name": "currentModuleId", "type": "string" },
+        { "name": "currentLessonId", "type": "string" },
+        { "name": "completedLessons", "type": "array" },
+        { "name": "completedModules", "type": "array" },
+        { "name": "quizScores", "type": "map" },
+        { "name": "lastVisitedAt", "type": "string" },
+        { "name": "learningStreakDays", "type": "number" },
+        { "name": "currentStreak", "type": "number" },
+        { "name": "longestStreak", "type": "number" },
+        { "name": "lastActiveDate", "type": "string" },
+        { "name": "todayCompleted", "type": "boolean" },
+        { "name": "totalActiveDays", "type": "number" },
+        { "name": "weeklyActivity", "type": "map" }
+      ]
+    },
+    {
+      "name": "PaperPortfolio",
+      "path": "users/{userId}/data/portfolio",
+      "fields": [
+        { "name": "virtualCash", "type": "number" },
+        { "name": "realizedPnL", "type": "number" },
+        { "name": "positions", "type": "map" },
+        { "name": "lastUpdated", "type": "string" }
+      ]
+    },
+    {
+      "name": "UserSettings",
+      "path": "users/{userId}/data/settings",
+      "fields": [
+        { "name": "theme", "type": "string" },
+        { "name": "defaultExplanationMode", "type": "string" },
+        { "name": "soundEffects", "type": "boolean" },
+        { "name": "notifications", "type": "boolean" },
+        { "name": "audioFeedback", "type": "boolean" }
+      ]
+    },
+    {
+      "name": "TradeOrder",
+      "path": "users/{userId}/trades/{tradeId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "timestamp", "type": "string" },
+        { "name": "symbol", "type": "string" },
+        { "name": "name", "type": "string" },
+        { "name": "side", "type": "string" },
+        { "name": "quantity", "type": "number" },
+        { "name": "price", "type": "number" },
+        { "name": "totalAmount", "type": "number" },
+        { "name": "stopLoss", "type": "number" },
+        { "name": "targetPrice", "type": "number" },
+        { "name": "realizedPnL", "type": "number" }
+      ]
+    },
+    {
+      "name": "JournalEntry",
+      "path": "users/{userId}/journal/{entryId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "tradeId", "type": "string" },
+        { "name": "symbol", "type": "string" },
+        { "name": "reasoning", "type": "string" },
+        { "name": "emotions", "type": "string" },
+        { "name": "mistakes", "type": "string" },
+        { "name": "rulesFollowed", "type": "boolean" },
+        { "name": "tags", "type": "array" },
+        { "name": "timestamp", "type": "string" }
+      ]
+    },
+    {
+      "name": "MentorConversation",
+      "path": "users/{userId}/mentorConversations/{conversationId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "title", "type": "string" },
+        { "name": "createdAt", "type": "string" },
+        { "name": "updatedAt", "type": "string" },
+        { "name": "lastMessagePreview", "type": "string" },
+        { "name": "explanationMode", "type": "string" }
+      ]
+    },
+    {
+      "name": "MentorMessage",
+      "path": "users/{userId}/mentorConversations/{conversationId}/messages/{messageId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "sender", "type": "string" },
+        { "name": "text", "type": "string" },
+        { "name": "time", "type": "string" },
+        { "name": "createdAt", "type": "string" }
+      ]
+    },
+    {
+      "name": "AdminProfile",
+      "path": "admins/{adminId}",
+      "fields": [
+        { "name": "uid", "type": "string" },
+        { "name": "email", "type": "string" },
+        { "name": "role", "type": "string" },
+        { "name": "assignedAt", "type": "string" }
+      ]
+    },
+    {
+      "name": "AdminAuditLog",
+      "path": "adminAuditLogs/{logId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "adminEmail", "type": "string" },
+        { "name": "action", "type": "string" },
+        { "name": "target", "type": "string" },
+        { "name": "timestamp", "type": "string" },
+        { "name": "details", "type": "string" }
+      ]
+    },
+    {
+      "name": "AdminMentorConversation",
+      "path": "adminMentor/{adminId}/conversations/{conversationId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "title", "type": "string" },
+        { "name": "createdAt", "type": "string" },
+        { "name": "updatedAt", "type": "string" },
+        { "name": "lastMessagePreview", "type": "string" }
+      ]
+    },
+    {
+      "name": "AdminMentorMessage",
+      "path": "adminMentor/{adminId}/conversations/{conversationId}/messages/{messageId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "sender", "type": "string" },
+        { "name": "text", "type": "string" },
+        { "name": "time", "type": "string" },
+        { "name": "createdAt", "type": "string" }
+      ]
+    }
+  ]
+}

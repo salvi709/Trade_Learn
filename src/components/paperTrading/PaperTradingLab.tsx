@@ -1,0 +1,588 @@
+import React, { useState } from 'react';
+import { 
+  FictionalStock, 
+  PaperPortfolio, 
+  Position, 
+  TradeOrder 
+} from '../../types';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Wallet, 
+  ShoppingBag, 
+  Clock, 
+  ShieldCheck, 
+  AlertCircle,
+  FileText,
+  PieChart
+} from 'lucide-react';
+import { MarketMascot } from '../mascot/MarketMascot';
+
+interface PaperTradingProps {
+  portfolio: PaperPortfolio;
+  stocks: FictionalStock[];
+  tradeHistory: TradeOrder[];
+  onExecuteTrade: (order: {
+    symbol: string;
+    side: 'BUY' | 'SELL';
+    quantity: number;
+    price: number;
+    stopLoss?: number;
+    targetPrice?: number;
+  }) => { success: boolean; message: string };
+  onOpenJournalForTrade?: (symbol: string) => void;
+}
+
+export const PaperTradingLab: React.FC<PaperTradingProps> = ({
+  portfolio,
+  stocks,
+  tradeHistory,
+  onExecuteTrade,
+  onOpenJournalForTrade,
+}) => {
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>(stocks[0]?.symbol || 'NOVA');
+  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
+  const [quantity, setQuantity] = useState<number>(10);
+  const [useStopLoss, setUseStopLoss] = useState<boolean>(true);
+  const [stopLoss, setStopLoss] = useState<number>(0);
+  const [useTarget, setUseTarget] = useState<boolean>(true);
+  const [targetPrice, setTargetPrice] = useState<number>(0);
+  const [tradeStatus, setTradeStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const selectedStock = stocks.find((s) => s.symbol === selectedStockSymbol) || stocks[0];
+  const userPosition: Position | undefined = portfolio.positions[selectedStock.symbol];
+
+  // Set default stop loss and target when stock changes
+  React.useEffect(() => {
+    if (selectedStock) {
+      setStopLoss(Math.round(selectedStock.currentPrice * 0.95)); // -5%
+      setTargetPrice(Math.round(selectedStock.currentPrice * 1.10)); // +10%
+    }
+  }, [selectedStock.symbol]);
+
+  // Compute total portfolio valuation
+  let totalEquityHoldingsValue = 0;
+  let totalUnrealizedPnL = 0;
+
+  Object.values(portfolio.positions).forEach((pos) => {
+    const liveStock = stocks.find((s) => s.symbol === pos.symbol);
+    const livePrice = liveStock ? liveStock.currentPrice : pos.currentPrice;
+    const positionVal = pos.shares * livePrice;
+    const pnl = positionVal - (pos.shares * pos.averagePrice);
+    totalEquityHoldingsValue += positionVal;
+    totalUnrealizedPnL += pnl;
+  });
+
+  const totalPortfolioNetWorth = portfolio.virtualCash + totalEquityHoldingsValue;
+  const orderTotal = quantity * selectedStock.currentPrice;
+
+  const handleSubmitOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTradeStatus(null);
+
+    if (quantity <= 0) {
+      setTradeStatus({ success: false, message: 'Quantity must be at least 1 share.' });
+      return;
+    }
+
+    if (side === 'BUY' && orderTotal > portfolio.virtualCash) {
+      setTradeStatus({ 
+        success: false, 
+        message: `Insufficient virtual cash. Required: ₹${orderTotal.toLocaleString('en-IN')}, Available: ₹${portfolio.virtualCash.toLocaleString('en-IN')}` 
+      });
+      return;
+    }
+
+    if (side === 'SELL') {
+      const owned = userPosition?.shares || 0;
+      if (owned < quantity) {
+        setTradeStatus({ 
+          success: false, 
+          message: `Cannot sell ${quantity} shares. You only own ${owned} shares of ${selectedStock.symbol}.` 
+        });
+        return;
+      }
+    }
+
+    const result = onExecuteTrade({
+      symbol: selectedStock.symbol,
+      side,
+      quantity,
+      price: selectedStock.currentPrice,
+      stopLoss: useStopLoss ? stopLoss : undefined,
+      targetPrice: useTarget ? targetPrice : undefined,
+    });
+
+    setTradeStatus(result);
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Simulation Disclaimer Banner */}
+      <div className="theme-surface-subtle border theme-border rounded-2xl p-4 flex items-center justify-between text-xs theme-secondary-text">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className="w-5 h-5 theme-positive-text shrink-0" />
+          <span>
+            <strong>Educational Paper Trading Simulator:</strong> All data, companies, and ₹1,00,000 capital are strictly fictional for risk-free learning.
+          </span>
+        </div>
+        <span className="font-mono theme-card px-2.5 py-0.5 rounded-full border theme-border text-[11px] font-bold theme-primary-text">
+          Fictional Universe
+        </span>
+      </div>
+
+      {/* Portfolio Balance Header Cards */}
+      <div
+        data-tour="paper-trading-balance"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
+          <span className="text-xs theme-muted-text font-medium block mb-1">Total Net Worth</span>
+          <span className="text-lg md:text-xl font-bold font-mono theme-main-text">
+            ₹{totalPortfolioNetWorth.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
+          <span className="text-xs theme-muted-text font-medium block mb-1">Virtual Cash Balance</span>
+          <span className="text-lg md:text-xl font-bold font-mono theme-primary-text">
+            ₹{portfolio.virtualCash.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
+          <span className="text-xs theme-muted-text font-medium block mb-1">Holdings Value</span>
+          <span className="text-lg md:text-xl font-bold font-mono theme-main-text">
+            ₹{totalEquityHoldingsValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
+          <span className="text-xs theme-muted-text font-medium block mb-1">Unrealized P&L</span>
+          <span className={`text-lg md:text-xl font-bold font-mono ${totalUnrealizedPnL >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
+            {totalUnrealizedPnL >= 0 ? '+' : ''}₹{totalUnrealizedPnL.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+
+      {/* Main Trade Execution & Stock Universe Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: Stock Picker & Chart/Profile */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Stock Selector Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {stocks.map((s) => {
+              const isSelected = s.symbol === selectedStock.symbol;
+              return (
+                <button
+                  key={s.symbol}
+                  type="button"
+                  onClick={() => setSelectedStockSymbol(s.symbol)}
+                  className={`p-3 rounded-2xl border text-left min-w-[140px] transition-all cursor-pointer interactive-card ${
+                    isSelected
+                      ? 'theme-soft-accent-bg border-emerald-500 shadow-xs ring-1 ring-emerald-500/30'
+                      : 'theme-card theme-border hover:border-slate-400'
+                  }`}
+                >
+                  <div className="text-xs font-bold theme-main-text font-mono">{s.symbol}</div>
+                  <div className="text-[11px] theme-secondary-text truncate">{s.name}</div>
+                  <div className="mt-1 flex items-center justify-between text-xs font-mono">
+                    <span className="theme-main-text font-semibold">₹{s.currentPrice.toFixed(2)}</span>
+                    <span className={`font-bold ${s.changePercent >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
+                      {s.changePercent >= 0 ? '+' : ''}{s.changePercent}%
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Stock Details Card */}
+          <div className="theme-card border theme-border rounded-3xl p-6 space-y-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b theme-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold theme-main-text font-heading">{selectedStock.name}</h3>
+                  <span className="text-xs font-mono theme-surface-subtle theme-secondary-text px-2 py-0.5 rounded font-bold border theme-border">
+                    {selectedStock.symbol}
+                  </span>
+                </div>
+                <p className="text-xs theme-secondary-text mt-0.5">{selectedStock.sector} • {selectedStock.description}</p>
+              </div>
+
+              <div className="text-right">
+                <div className="text-2xl font-bold font-mono theme-main-text">
+                  ₹{selectedStock.currentPrice.toFixed(2)}
+                </div>
+                <div className={`text-xs font-mono font-bold flex items-center justify-end gap-1 ${
+                  selectedStock.change >= 0 ? 'theme-positive-text' : 'theme-negative-text'
+                }`}>
+                  {selectedStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {selectedStock.change >= 0 ? '+' : ''}₹{selectedStock.change.toFixed(2)} ({selectedStock.changePercent}%)
+                </div>
+              </div>
+            </div>
+
+            {/* Price Chart Simulation */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs theme-secondary-text font-semibold">Today's Simulated Intraday Trend</span>
+                <span className="text-[11px] theme-muted-text font-mono">9:15 AM - 3:30 PM</span>
+              </div>
+              <div className="theme-surface-subtle p-4 rounded-2xl border theme-border h-48 flex items-end justify-between gap-2">
+                {selectedStock.priceHistory.map((point, idx) => {
+                  const minP = Math.min(...selectedStock.priceHistory.map(p => p.price));
+                  const maxP = Math.max(...selectedStock.priceHistory.map(p => p.price));
+                  const range = maxP - minP || 1;
+                  const heightPercent = 20 + ((point.price - minP) / range) * 70;
+
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
+                      {/* Tooltip on hover */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-2 theme-surface-elevated text-[10px] font-mono theme-main-text px-2 py-1 rounded border theme-border shadow-xl pointer-events-none whitespace-nowrap z-10">
+                        {point.time} • ₹{point.price.toFixed(2)}
+                      </div>
+                      <div 
+                        className="w-full theme-primary-bg opacity-80 hover:opacity-100 rounded-t transition-all"
+                        style={{ height: `${heightPercent}%` }}
+                      ></div>
+                      <span className="text-[10px] theme-muted-text font-mono">{point.time}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fundamental Metrics Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-3 theme-surface-subtle rounded-xl border theme-border">
+                <span className="text-[10px] theme-muted-text block font-medium">P/E Ratio</span>
+                <span className="text-sm font-bold font-mono theme-main-text">{selectedStock.peRatio}</span>
+              </div>
+              <div className="p-3 theme-surface-subtle rounded-xl border theme-border">
+                <span className="text-[10px] theme-muted-text block font-medium">ROE</span>
+                <span className="text-sm font-bold font-mono theme-positive-text">{selectedStock.roe}</span>
+              </div>
+              <div className="p-3 theme-surface-subtle rounded-xl border theme-border">
+                <span className="text-[10px] theme-muted-text block font-medium">Debt-to-Equity</span>
+                <span className="text-sm font-bold font-mono theme-main-text">{selectedStock.debtToEquity}</span>
+              </div>
+              <div className="p-3 theme-surface-subtle rounded-xl border theme-border">
+                <span className="text-[10px] theme-muted-text block font-medium">52W Range</span>
+                <span className="text-xs font-mono theme-secondary-text">₹{selectedStock.low52w} - ₹{selectedStock.high52w}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Order Placement Ticket */}
+        <div className="space-y-6">
+          <form
+            onSubmit={handleSubmitOrder}
+            data-tour="paper-trading-order-ticket"
+            className="theme-card border theme-border rounded-3xl p-6 space-y-5 shadow-sm"
+          >
+            <h3 className="text-base font-bold theme-main-text flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 theme-primary-text" />
+              Simulated Order Ticket
+            </h3>
+
+            {/* Buy / Sell switch */}
+            <div className="grid grid-cols-2 gap-2 theme-surface-subtle p-1 rounded-2xl border theme-border">
+              <button
+                type="button"
+                onClick={() => setSide('BUY')}
+                className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer interactive-btn ${
+                  side === 'BUY'
+                    ? 'theme-btn-primary shadow-xs'
+                    : 'theme-secondary-text hover:theme-main-text'
+                }`}
+              >
+                Buy (Long)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSide('SELL')}
+                className={`py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer interactive-btn ${
+                  side === 'SELL'
+                    ? 'theme-btn-bear shadow-xs'
+                    : 'theme-secondary-text hover:theme-main-text'
+                }`}
+              >
+                Sell (Exit)
+              </button>
+            </div>
+
+            {/* Position check */}
+            <div className="text-xs theme-secondary-text flex justify-between px-1">
+              <span>You currently own:</span>
+              <span className="font-mono font-bold theme-main-text">
+                {userPosition ? `${userPosition.shares} shares` : '0 shares'}
+              </span>
+            </div>
+
+            {/* Quantity */}
+            <div>
+              <label className="text-xs font-semibold theme-secondary-text block mb-1.5">Number of Shares:</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+                  className="w-full theme-surface-subtle border theme-border rounded-xl px-3 py-2 text-sm font-mono theme-main-text interactive-input focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuantity(25)}
+                  className="px-2.5 py-2 theme-surface-subtle theme-main-text rounded-xl text-xs font-mono border theme-border hover:theme-card cursor-pointer font-semibold interactive-btn"
+                >
+                  25
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(50)}
+                  className="px-2.5 py-2 theme-surface-subtle theme-main-text rounded-xl text-xs font-mono border theme-border hover:theme-card cursor-pointer font-semibold interactive-btn"
+                >
+                  50
+                </button>
+              </div>
+            </div>
+
+            {/* Stop Loss (Risk Management) */}
+            <div className="p-3 theme-surface-subtle rounded-xl border theme-border space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold theme-secondary-text flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 theme-warning-text" />
+                  Planned Stop-Loss (₹):
+                </label>
+                <input
+                  type="checkbox"
+                  checked={useStopLoss}
+                  onChange={(e) => setUseStopLoss(e.target.checked)}
+                  className="accent-emerald-500"
+                />
+              </div>
+              {useStopLoss && (
+                <input
+                  type="number"
+                  value={stopLoss}
+                  onChange={(e) => setStopLoss(Number(e.target.value))}
+                  className="w-full theme-card border border-rose-400 rounded-lg px-2.5 py-1 text-xs font-mono theme-negative-text"
+                />
+              )}
+            </div>
+
+            {/* Target Price */}
+            <div className="p-3 theme-surface-subtle rounded-xl border theme-border space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold theme-secondary-text flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 theme-positive-text" />
+                  Planned Target (₹):
+                </label>
+                <input
+                  type="checkbox"
+                  checked={useTarget}
+                  onChange={(e) => setUseTarget(e.target.checked)}
+                  className="accent-emerald-500"
+                />
+              </div>
+              {useTarget && (
+                <input
+                  type="number"
+                  value={targetPrice}
+                  onChange={(e) => setTargetPrice(Number(e.target.value))}
+                  className="w-full theme-card border border-emerald-400 rounded-lg px-2.5 py-1 text-xs font-mono theme-positive-text"
+                />
+              )}
+            </div>
+
+            {/* Total Required */}
+            <div className="pt-2 border-t theme-border flex justify-between items-center text-xs">
+              <span className="theme-secondary-text font-medium">Order Value:</span>
+              <span className="text-base font-bold font-mono theme-main-text">
+                ₹{orderTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              className={`w-full py-3.5 font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs transition-all cursor-pointer interactive-btn ${
+                side === 'BUY'
+                  ? 'theme-btn-primary'
+                  : 'theme-btn-bear'
+              }`}
+            >
+              {side === 'BUY' ? `Buy ${quantity} ${selectedStock.symbol}` : `Sell ${quantity} ${selectedStock.symbol}`}
+            </button>
+
+            {tradeStatus && (
+              <div className={`p-4 rounded-xl text-xs leading-relaxed border space-y-2 ${
+                tradeStatus.success 
+                  ? 'theme-surface-subtle theme-positive-text border-emerald-500/30' 
+                  : 'theme-surface-subtle text-[#B82E3B] dark:text-[#E66B6B] border-[#B82E3B]/30'
+              }`}>
+                <div className="flex items-start gap-3">
+                  {tradeStatus.success ? (
+                    side === 'BUY' ? (
+                      <MarketMascot character="bull" pose="celebrating" size="xs" interactive={false} />
+                    ) : (
+                      <MarketMascot character="bear" pose="warning" size="xs" interactive={false} />
+                    )
+                  ) : (
+                    <MarketMascot character="bear" pose="thinking" size="xs" interactive={false} />
+                  )}
+                  <div className="space-y-1 min-w-0">
+                    <span className="font-bold block">
+                      {tradeStatus.message}
+                    </span>
+                    <span className="text-[11px] theme-secondary-text block">
+                      {tradeStatus.success
+                        ? side === 'BUY'
+                          ? 'Bullish Bob: "Ownership secured! Give your investment thesis time to compound."'
+                          : 'Bearish Ben: "Order completed! Adhering to your exit plan keeps trading psychology sharp."'
+                        : 'Bearish Ben: "Check your virtual cash balance or available shares before placing again."'}
+                    </span>
+                  </div>
+                </div>
+
+                {tradeStatus.success && onOpenJournalForTrade && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenJournalForTrade(selectedStock.symbol)}
+                    className="mt-2 block theme-primary-text hover:underline font-semibold cursor-pointer text-xs"
+                  >
+                    Log this trade in your Trading Journal ✍️
+                  </button>
+                )}
+              </div>
+            )}
+          </form>
+        </div>
+      </div>
+
+      {/* Open Positions Table */}
+      <div className="theme-card border theme-border rounded-3xl p-6 space-y-4 shadow-sm">
+        <h3 className="text-lg font-bold theme-main-text flex items-center gap-2">
+          <PieChart className="w-5 h-5 theme-primary-text" />
+          Open Simulated Portfolio Positions
+        </h3>
+
+        {Object.keys(portfolio.positions).length === 0 ? (
+          <div className="p-8 text-center theme-surface-subtle rounded-2xl border theme-border theme-secondary-text text-sm">
+            You currently hold 0 open stock positions. Select a stock above to place your first educational paper trade!
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="theme-surface-subtle theme-secondary-text font-mono border-b theme-border">
+                <tr>
+                  <th className="p-3">Symbol</th>
+                  <th className="p-3">Shares</th>
+                  <th className="p-3">Avg Buy Price</th>
+                  <th className="p-3">Current Price</th>
+                  <th className="p-3">Market Value</th>
+                  <th className="p-3">Unrealized P&L</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y theme-border font-mono">
+                {Object.values(portfolio.positions).map((pos) => {
+                  const stock = stocks.find(s => s.symbol === pos.symbol);
+                  const curPrice = stock ? stock.currentPrice : pos.currentPrice;
+                  const currentVal = pos.shares * curPrice;
+                  const pnl = currentVal - (pos.shares * pos.averagePrice);
+                  const pnlPct = (pnl / (pos.shares * pos.averagePrice)) * 100;
+
+                  return (
+                    <tr key={pos.symbol} className="hover:theme-surface-subtle transition-colors">
+                      <td className="p-3 font-bold theme-main-text">{pos.symbol}</td>
+                      <td className="p-3 theme-secondary-text">{pos.shares}</td>
+                      <td className="p-3 theme-secondary-text">₹{pos.averagePrice.toFixed(2)}</td>
+                      <td className="p-3 theme-main-text font-bold">₹{curPrice.toFixed(2)}</td>
+                      <td className="p-3 theme-secondary-text">₹{currentVal.toFixed(2)}</td>
+                      <td className={`p-3 font-bold ${pnl >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
+                        {pnl >= 0 ? '+' : ''}₹{pnl.toFixed(2)} ({pnlPct.toFixed(1)}%)
+                      </td>
+                      <td className="p-3 text-right font-sans">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStockSymbol(pos.symbol);
+                            setSide('SELL');
+                            setQuantity(pos.shares);
+                          }}
+                          className="px-3 py-1 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-lg hover:bg-rose-600 hover:text-white transition-all cursor-pointer font-semibold"
+                        >
+                          Quick Exit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Trade History Log */}
+      <div className="theme-card border theme-border rounded-3xl p-6 space-y-4 shadow-sm">
+        <h3 className="text-lg font-bold theme-main-text flex items-center gap-2">
+          <Clock className="w-5 h-5 theme-primary-text" />
+          Recent Paper Trade Execution History
+        </h3>
+
+        {tradeHistory.length === 0 ? (
+          <div className="p-6 text-center theme-muted-text text-xs font-mono theme-surface-subtle rounded-2xl border theme-border">
+            No executed orders recorded yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="theme-surface-subtle theme-secondary-text border-b theme-border">
+                <tr>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Side</th>
+                  <th className="p-3">Stock</th>
+                  <th className="p-3">Shares</th>
+                  <th className="p-3">Executed Price</th>
+                  <th className="p-3">Total Amount</th>
+                  <th className="p-3">Realized P&L</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y theme-border theme-secondary-text">
+                {tradeHistory.slice(0, 8).map((trade) => (
+                  <tr key={trade.id} className="hover:theme-surface-subtle">
+                    <td className="p-3 theme-muted-text text-[11px]">{new Date(trade.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="p-3 font-bold">
+                      <span className={`px-2 py-0.5 rounded text-[10px] ${
+                        trade.side === 'BUY' ? 'bg-emerald-500/10 theme-positive-text border border-emerald-500/20' : 'bg-rose-500/10 theme-negative-text border border-rose-500/20'
+                      }`}>
+                        {trade.side}
+                      </span>
+                    </td>
+                    <td className="p-3 font-bold theme-main-text">{trade.symbol}</td>
+                    <td className="p-3">{trade.quantity}</td>
+                    <td className="p-3">₹{trade.price.toFixed(2)}</td>
+                    <td className="p-3 font-medium">₹{trade.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                    <td className="p-3 font-semibold">
+                      {trade.realizedPnL !== undefined ? (
+                        <span className={trade.realizedPnL >= 0 ? 'theme-positive-text' : 'theme-negative-text'}>
+                          {trade.realizedPnL >= 0 ? '+' : ''}₹{trade.realizedPnL.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="theme-muted-text">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

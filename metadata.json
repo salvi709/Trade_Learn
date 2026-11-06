@@ -1,0 +1,6 @@
+{
+  "name": "Stock Market Learning Lab",
+  "description": "From 'What is a stock?' to your first paper trade. An educational simulation and interactive financial literacy platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

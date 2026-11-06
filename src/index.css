@@ -1,0 +1,449 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="premium_emerald"], [data-theme="dark"], .dark, .dark *));
+
+@theme {
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-foreground: var(--app-primary-foreground);
+  --color-background: var(--app-bg);
+  --color-foreground: var(--app-main-text);
+  --color-card: var(--app-card);
+  --color-border: var(--app-border);
+}
+
+:root {
+  --brand-green: #10B981;
+  --brand-green-hover: #059669;
+  --brand-green-dark: #047857;
+}
+
+:root, [data-theme="royal_blue"], [data-theme="light"] {
+  --app-bg: #F4F5F7;
+  --app-bg-secondary: #EBEFEF;
+  --app-card: #FFFFFF;
+  --app-surface: #FFFFFF;
+  --app-surface-subtle: #F8FAFC;
+  --app-surface-elevated: #FFFFFF;
+  --app-primary: #0D6847;
+  --app-primary-hover: #095237;
+  --app-primary-foreground: #FFFFFF;
+  --app-secondary: #16845B;
+  --app-soft-accent: #E6F4ED;
+  --app-main-text: #111827;
+  --app-secondary-text: #4B5563;
+  --app-muted-text: #6B7280;
+  --app-border: #E5E7EB;
+  --app-border-strong: #D1D5DB;
+  --app-hover: #F3F4F6;
+  --app-active: #E6F4ED;
+  --app-positive: #0D6847;
+  --app-negative: #B82E3B;
+  --app-warning: #D97706;
+  --app-bull-green: #0D6847;
+  --app-bull-green-hover: #095237;
+  --app-bull-green-soft: #E6F4ED;
+  --app-bear-red: #B82E3B;
+  --app-bear-red-hover: #9E2430;
+  --app-bear-red-soft: #FDE8E8;
+  --app-card-shadow: 0 2px 10px -2px rgba(13, 104, 71, 0.05), 0 1px 3px -1px rgba(0, 0, 0, 0.03);
+  --app-card-hover-shadow: 0 14px 30px -4px rgba(13, 104, 71, 0.14), 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+  --app-btn-hover-shadow: 0 6px 16px -2px rgba(13, 104, 71, 0.2);
+}
+
+[data-theme="premium_emerald"], [data-theme="dark"] {
+  --app-bg: #000000;
+  --app-bg-secondary: #080A0D;
+  --app-card: #0D1117;
+  --app-surface: #0D1117;
+  --app-surface-subtle: #161B22;
+  --app-surface-elevated: #1F242C;
+  --app-primary: #10B981;
+  --app-primary-hover: #059669;
+  --app-primary-foreground: #FFFFFF;
+  --app-secondary: #299C70;
+  --app-soft-accent: rgba(16, 185, 129, 0.12);
+  --app-main-text: #F3F4F6;
+  --app-secondary-text: #9CA3AF;
+  --app-muted-text: #6B7280;
+  --app-border: #21262D;
+  --app-border-strong: #30363D;
+  --app-hover: #161B22;
+  --app-active: rgba(16, 185, 129, 0.16);
+  --app-positive: #10B981;
+  --app-negative: #D94B4B;
+  --app-warning: #F59E0B;
+  --app-bull-green: #10B981;
+  --app-bull-green-hover: #059669;
+  --app-bull-green-soft: rgba(16, 185, 129, 0.14);
+  --app-bear-red: #D94B4B;
+  --app-bear-red-hover: #B82E3B;
+  --app-bear-red-soft: rgba(217, 75, 75, 0.16);
+  --app-card-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.5), 0 1px 3px -1px rgba(0, 0, 0, 0.3);
+  --app-card-hover-shadow: 0 18px 36px -4px rgba(0, 0, 0, 0.85), 0 4px 16px -2px rgba(16, 185, 129, 0.18);
+  --app-btn-hover-shadow: 0 6px 20px -2px rgba(16, 185, 129, 0.28);
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--app-bg);
+    color: var(--app-main-text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--app-main-text);
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Centralized semantic theme utility classes */
+.theme-bg { background-color: var(--app-bg); }
+.theme-bg-secondary { background-color: var(--app-bg-secondary); }
+.theme-card { 
+  background-color: var(--app-card); 
+  border-color: var(--app-border); 
+}
+.theme-surface { background-color: var(--app-surface); }
+.theme-surface-subtle { background-color: var(--app-surface-subtle); }
+.theme-surface-elevated { background-color: var(--app-surface-elevated); }
+.theme-border { border-color: var(--app-border); }
+.theme-border-strong { border-color: var(--app-border-strong); }
+
+.theme-primary-bg { background-color: var(--app-primary); color: var(--app-primary-foreground); }
+.theme-primary-hover-bg:hover { background-color: var(--app-primary-hover); }
+.theme-primary-text { color: var(--app-primary); }
+.theme-secondary-bg { background-color: var(--app-secondary); }
+.theme-soft-accent-bg { background-color: var(--app-soft-accent); }
+
+.theme-main-text { color: var(--app-main-text); }
+.theme-secondary-text { color: var(--app-secondary-text); }
+.theme-muted-text { color: var(--app-muted-text); }
+
+.theme-positive-text { color: var(--app-positive); }
+.theme-negative-text { color: var(--app-negative); }
+.theme-warning-text { color: var(--app-warning); }
+
+/* Trading-inspired Bull & Bear Brand Classes */
+.theme-bull-text { color: var(--app-bull-green); }
+.theme-bull-bg { background-color: var(--app-bull-green); color: #FFFFFF; }
+.theme-bull-soft-bg { background-color: var(--app-bull-green-soft); color: var(--app-bull-green); }
+.theme-bear-text { color: var(--app-bear-red); }
+.theme-bear-bg { background-color: var(--app-bear-red); color: #FFFFFF; }
+.theme-bear-soft-bg { background-color: var(--app-bear-red-soft); color: var(--app-bear-red); }
+.theme-bear-border { border-color: var(--app-bear-red); }
+
+.theme-btn-primary {
+  background-color: var(--app-primary);
+  color: var(--app-primary-foreground);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 180ms ease,
+              box-shadow 180ms ease;
+}
+.theme-btn-primary:hover {
+  background-color: var(--app-primary-hover);
+}
+
+.theme-btn-bear {
+  background-color: var(--app-bear-red);
+  color: #FFFFFF;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 180ms ease,
+              box-shadow 180ms ease;
+}
+.theme-btn-bear:hover {
+  background-color: var(--app-bear-red-hover);
+}
+
+.theme-card-shadow { box-shadow: var(--app-card-shadow); }
+.theme-card-hover:hover { box-shadow: var(--app-card-hover-shadow); }
+
+/* ==========================================================================
+   PREMIUM FLUID MICRO-INTERACTION HOVER SYSTEM
+   ========================================================================== */
+
+:root {
+  --hover-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --hover-duration: 250ms;
+}
+
+/* 1. Interactive Cards & Containers (Dashboard, Learning, Quizzes, Portfolio, Bento) */
+.interactive-card,
+.theme-card-interactive {
+  transition: transform var(--hover-duration) var(--hover-ease), 
+              box-shadow var(--hover-duration) var(--hover-ease), 
+              border-color var(--hover-duration) ease,
+              background-color var(--hover-duration) ease;
+  will-change: transform, box-shadow;
+}
+
+@media (hover: hover) {
+  .interactive-card:hover,
+  .theme-card-interactive:hover {
+    transform: translateY(-4px) scale(1.012);
+    box-shadow: var(--app-card-hover-shadow);
+  }
+}
+
+/* 2. Interactive Buttons (Primary, Secondary, Outline, Ghost, CTA, Icon buttons) */
+.interactive-btn,
+.theme-btn-primary {
+  transition: transform var(--hover-duration) var(--hover-ease),
+              background-color var(--hover-duration) ease,
+              border-color var(--hover-duration) ease,
+              box-shadow var(--hover-duration) var(--hover-ease),
+              color var(--hover-duration) ease;
+  will-change: transform, box-shadow;
+}
+
+@media (hover: hover) {
+  .interactive-btn:hover,
+  .theme-btn-primary:hover {
+    transform: translateY(-1.5px) scale(1.015);
+    box-shadow: var(--app-btn-hover-shadow);
+  }
+  .interactive-btn:active,
+  .theme-btn-primary:active {
+    transform: translateY(0.5px) scale(0.985);
+  }
+}
+
+/* 3. Navigation & Sidebar Items */
+.interactive-nav-item,
+.interactive-list-item {
+  transition: background-color var(--hover-duration) ease,
+              border-color var(--hover-duration) ease,
+              color var(--hover-duration) ease,
+              transform var(--hover-duration) var(--hover-ease),
+              box-shadow var(--hover-duration) ease;
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .interactive-nav-item:hover {
+    transform: translateX(4px);
+  }
+  .interactive-list-item:hover {
+    transform: translateX(3px) translateY(-1px);
+    box-shadow: var(--app-card-shadow);
+  }
+}
+
+/* 4. Quiz & Selectable Cards */
+.interactive-quiz-option {
+  transition: transform var(--hover-duration) var(--hover-ease),
+              border-color var(--hover-duration) ease,
+              background-color var(--hover-duration) ease,
+              box-shadow var(--hover-duration) var(--hover-ease);
+  will-change: transform, box-shadow;
+}
+
+@media (hover: hover) {
+  .interactive-quiz-option:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.008);
+    box-shadow: 0 6px 18px -3px rgba(0, 0, 0, 0.12);
+  }
+  .interactive-quiz-option:active:not(:disabled) {
+    transform: translateY(0) scale(0.995);
+  }
+}
+
+/* 5. Form Controls & Inputs (Stationary with fluid border & glow) */
+.interactive-input {
+  transition: border-color var(--hover-duration) ease,
+              box-shadow var(--hover-duration) var(--hover-ease),
+              background-color var(--hover-duration) ease;
+}
+
+.interactive-input:hover:not(:focus) {
+  border-color: var(--app-border-strong);
+}
+
+.interactive-input:focus,
+.interactive-input:focus-within {
+  outline: none;
+  border-color: var(--app-primary) !important;
+  box-shadow: 0 0 0 3px var(--app-soft-accent), 0 2px 8px -2px rgba(16, 185, 129, 0.2);
+}
+
+/* 6. Clickable Interactive Icons */
+.interactive-icon {
+  transition: transform var(--hover-duration) var(--hover-ease),
+              color var(--hover-duration) ease,
+              opacity var(--hover-duration) ease;
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .interactive-icon:hover {
+    transform: scale(1.1) translateY(-1px);
+  }
+  .interactive-icon:active {
+    transform: scale(0.95);
+  }
+}
+
+/* 7. Accessibility & Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  .interactive-card,
+  .theme-card-interactive,
+  .interactive-btn,
+  .theme-btn-primary,
+  .interactive-nav-item,
+  .interactive-list-item,
+  .interactive-quiz-option,
+  .interactive-icon {
+    transform: none !important;
+    transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, color 150ms ease !important;
+  }
+}
+
+/* Premium Fintech Landing Experience Animations */
+@keyframes landingBgDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(16px, -12px, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-10px, 8px, 0) scale(0.98);
+  }
+}
+
+@keyframes landingLogoEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes landingFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landingDrawLine {
+  0% {
+    stroke-dashoffset: 500;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes landingFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes landingButtonEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+    pointer-events: none;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+.anim-landing-bg {
+  animation: landingBgDrift 22s ease-in-out infinite alternate;
+}
+
+.anim-landing-logo {
+  animation: landingLogoEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+.anim-landing-title {
+  animation: landingFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both;
+}
+
+.anim-landing-tagline {
+  animation: landingFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 1.5s both;
+}
+
+.anim-landing-chart-container {
+  animation: landingFadeIn 0.6s ease-out 1.9s both;
+}
+
+.anim-landing-chart {
+  stroke-dasharray: 500;
+  stroke-dashoffset: 500;
+  animation: landingDrawLine 1.3s cubic-bezier(0.16, 1, 0.3, 1) 2.0s forwards;
+}
+
+.anim-landing-nodes {
+  animation: landingFadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 2.35s both;
+}
+
+.anim-landing-continue {
+  animation: landingButtonEntrance 0.65s cubic-bezier(0.16, 1, 0.3, 1) 2.7s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-landing-bg,
+  .anim-landing-logo,
+  .anim-landing-title,
+  .anim-landing-tagline,
+  .anim-landing-chart-container,
+  .anim-landing-nodes,
+  .anim-landing-continue {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .anim-landing-chart {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--app-bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--app-border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--app-secondary-text);
+}

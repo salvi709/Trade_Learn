@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for security and authentication verification
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'salvisarthak2007@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Admin Profiles Registry (/admins/{adminId})
+    match /admins/{adminId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (request.auth.token.email == 'salvisarthak2007@gmail.com' || request.auth.uid == adminId);
+    }
+
+    // Admin Audit Logs
+    match /adminAuditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Admin AI Mentor Isolated Conversations
+    match /adminMentor/{adminId}/{allPaths=**} {
+      allow read, write: if isAdmin() && request.auth.uid == adminId;
+    }
+
+    // User Profile Document (/users/{userId})
+    match /users/{userId} {
+      // Owner can read and write their own profile document; Admin can inspect user accounts
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if (isOwner(userId) && request.resource.data.uid == userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      // User Settings Subcollection document (/users/{userId}/data/settings)
+      match /data/settings {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // User Progress Subcollection document (/users/{userId}/data/progress)
+      match /data/progress {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // User Paper Portfolio Subcollection document (/users/{userId}/data/portfolio)
+      match /data/portfolio {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // Trade orders (/users/{userId}/trades/{tradeId})
+      match /trades/{tradeId} {
+        allow read, create, update, delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Journal entries (/users/{userId}/journal/{entryId})
+      match /journal/{entryId} {
+        allow read, create, update, delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Mentor conversations and nested messages
+      match /mentorConversations/{conversationId} {
+        allow read, create, update, delete: if isOwner(userId) || isAdmin();
+
+        match /messages/{messageId} {
+          allow read, create, update, delete: if isOwner(userId) || isAdmin();
+        }
+      }
+
+      // Catch-all for any other nested subcollections under the user
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Unique Username Registry (/usernames/{username})
+    match /usernames/{username} {
+      // Anyone can read usernames to check availability
+      allow read: if true;
+
+      // Creation: must be authenticated and claim with own auth.uid
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+
+      // Update: only the current owner of this username can update it
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+
+      // Deletion: only the current owner can release this username mapping
+      allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+  }
+}
