@@ -176,11 +176,68 @@ export async function fetchUserConversations(uid: string): Promise<MentorConvers
       return remoteConvs;
     }
 
-    return cached;
+    // If remote returned an empty array, it means user deleted all remote conversations
+    setLocalConversations(uid, []);
+    return [];
   } catch (error) {
     console.warn('Note: Using local cached conversations:', error);
     return cached;
   }
+}
+
+/**
+ * Delete a single individual message from a conversation
+ */
+export async function deleteMentorMessage(
+  uid: string,
+  conversationId: string,
+  messageId: string
+): Promise<MentorMessage[]> {
+  const existingMsgs = getLocalMessages(uid, conversationId);
+  const remaining = existingMsgs.filter((m) => m.id !== messageId);
+  setLocalMessages(uid, conversationId, remaining);
+
+  // Update conversation lastMessagePreview if needed
+  const lastMsg = remaining[remaining.length - 1];
+  const existingConvs = getLocalConversations(uid);
+  const updatedConvs = existingConvs.map((c) => {
+    if (c.id === conversationId) {
+      return {
+        ...c,
+        lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return c;
+  });
+  setLocalConversations(uid, updatedConvs);
+
+  if (isCloudUser(uid)) {
+    try {
+      const msgDocRef = doc(
+        db,
+        'users',
+        uid,
+        'mentorConversations',
+        conversationId,
+        'messages',
+        messageId
+      );
+      await deleteDoc(msgDocRef);
+      await setDoc(
+        doc(db, 'users', uid, 'mentorConversations', conversationId),
+        {
+          lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Could not delete individual message in Firestore:', err);
+    }
+  }
+
+  return remaining;
 }
 
 /**
@@ -227,12 +284,9 @@ export async function fetchConversationMessages(
       });
     });
 
-    if (remoteMsgs.length > 0) {
-      setLocalMessages(uid, conversationId, remoteMsgs);
-      return remoteMsgs;
-    }
-
-    return cached;
+    // Authoritatively synchronize remote messages to local cache so deleted messages stay deleted
+    setLocalMessages(uid, conversationId, remoteMsgs);
+    return remoteMsgs;
   } catch (error) {
     console.warn('Note: Using local cached messages for conversation:', error);
     return cached;
@@ -597,14 +651,12 @@ export async function fetchAdminMentorConversations(adminUid: string): Promise<M
     ]);
     const remote: MentorConversation[] = [];
     snap.forEach((d) => remote.push({ id: d.id, ...(d.data() as any) }));
-    if (remote.length > 0) {
-      setAdminLocalConvs(adminUid, remote);
-      return remote;
-    }
+    setAdminLocalConvs(adminUid, remote);
+    return remote;
   } catch (err) {
     console.warn('Admin convs fallback to cache:', err);
+    return cached;
   }
-  return cached;
 }
 
 export async function fetchAdminMentorMessages(adminUid: string, convId: string): Promise<MentorMessage[]> {
@@ -620,10 +672,8 @@ export async function fetchAdminMentorMessages(adminUid: string, convId: string)
     ]);
     const remote: MentorMessage[] = [];
     snap.forEach((d) => remote.push({ id: d.id, ...(d.data() as any) }));
-    if (remote.length > 0) {
-      setAdminLocalMsgs(adminUid, convId, remote);
-      return remote;
-    }
+    setAdminLocalMsgs(adminUid, convId, remote);
+    return remote;
   } catch (err) {
     console.warn('Admin msgs fallback to cache:', err);
   }
@@ -645,11 +695,13 @@ export async function createAdminMentorConversation(adminUid: string, firstQuest
   setAdminLocalConvs(adminUid, list);
 
   if (isCloudUser(adminUid)) {
-    try {
-      await setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId), newConv);
-    } catch {
-      // ignore
-    }
+    // Non-blocking fire-and-forget sync to Firestore with timeout safeguard
+    Promise.race([
+      setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId), newConv),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Cloud sync timeout')), 1500)),
+    ]).catch((err) => {
+      console.warn('Admin conversation cloud sync notice:', err?.message || err);
+    });
   }
   return newConv;
 }
@@ -667,18 +719,46 @@ export async function saveAdminMentorMessage(adminUid: string, convId: string, m
   setAdminLocalConvs(adminUid, updated);
 
   if (isCloudUser(adminUid)) {
+    // Non-blocking fire-and-forget sync to Firestore with timeout safeguard
+    Promise.race([
+      Promise.all([
+        setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId, 'messages', message.id), message),
+        setDoc(
+          doc(db, 'adminMentor', adminUid, 'conversations', convId),
+          {
+            updatedAt: new Date().toISOString(),
+            lastMessagePreview: message.text.substring(0, 70),
+          },
+          { merge: true }
+        ),
+      ]),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Cloud sync timeout')), 1500)),
+    ]).catch((err) => {
+      console.warn('Admin message cloud sync notice:', err?.message || err);
+    });
+  }
+}
+
+export async function deleteAdminMentorConversation(adminUid: string, convId: string): Promise<void> {
+  const existing = getAdminLocalConvs(adminUid);
+  setAdminLocalConvs(
+    adminUid,
+    existing.filter((c) => c.id !== convId)
+  );
+  const s = getStorage();
+  s?.removeItem(`smll_admin_intel_msgs_${adminUid}_${convId}`);
+
+  if (isCloudUser(adminUid)) {
     try {
-      await setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId, 'messages', message.id), message);
-      await setDoc(
-        doc(db, 'adminMentor', adminUid, 'conversations', convId),
-        {
-          updatedAt: new Date().toISOString(),
-          lastMessagePreview: message.text.substring(0, 70),
-        },
-        { merge: true }
+      const msgsSnap = await getDocs(
+        collection(db, 'adminMentor', adminUid, 'conversations', convId, 'messages')
       );
-    } catch {
-      // ignore
+      const batch = writeBatch(db);
+      msgsSnap.forEach((m) => batch.delete(m.ref));
+      batch.delete(doc(db, 'adminMentor', adminUid, 'conversations', convId));
+      await batch.commit();
+    } catch (err) {
+      console.warn('Could not delete admin conversation in Firestore:', err);
     }
   }
 }

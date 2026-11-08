@@ -29,6 +29,7 @@ import {
   saveRecentSearchId,
   clearRecentSearches
 } from '../../services/searchIndexService';
+import { isOwnerAdmin } from '../../services/adminService';
 import { GooeyInput } from '../ui/gooey-input';
 import { triggerTactileHaptic } from '../../services/mentorHistory';
 
@@ -71,7 +72,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const [recentItems, setRecentItems] = useState<SearchItem[]>([]);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  const isOwner = currentUser?.email?.toLowerCase() === 'salvisarthak2007@gmail.com';
+  const isOwner = isOwnerAdmin(currentUser?.email);
 
   useEffect(() => {
     if (isOpen) {

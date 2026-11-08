@@ -180,9 +180,16 @@ export function retrieveRelevantKnowledge(query: string, maxResults = 3): { chun
   return { chunks: scored, lessonRefs, glossaryRefs };
 }
 
-// ---------------------------------------------------------------------------
-// 2. RESILIENT GEMINI CLIENT & MODEL CASCADING
-// ---------------------------------------------------------------------------
+// Circuit breaker for projects where Gemini free tier is not available (403 PERMISSION_DENIED)
+let geminiBillingDisabledUntil = 0;
+
+export function isGeminiBillingDisabled(): boolean {
+  return Date.now() < geminiBillingDisabledUntil;
+}
+
+export function markGeminiBillingDisabled(ttlMs = 15 * 60 * 1000): void {
+  geminiBillingDisabledUntil = Date.now() + ttlMs;
+}
 
 let geminiClientInstance: GoogleGenAI | null = null;
 
@@ -253,28 +260,31 @@ function buildSystemInstruction(
     groundingBlock = `\n[OFFICIAL SHAREMARKET KNOWLEDGE BASE GROUNDING]:\nUse the following verified educational material from ShareMarket as your primary knowledge source:\n${groundingText}\n*Grounding Instruction*: Accurately reflect these definitions and analogies. When relevant, you may mention that this topic is covered in ShareMarket lessons.`;
   }
 
-  return `You are "Market Mentor", a patient, pedagogically disciplined, and encouraging personal stock-market learning companion inside the ShareMarket application.
+  const studentName = learnerContext?.displayName || 'Learner';
 
-PERSONALITY & TONE:
-- Friendly, warm, approachable, and encouraging without being overly bubbly or sycophantic.
-- Highly knowledgeable and clear-headed. An experienced teacher who loves making tricky ideas simple.
-- Serious and protective when discussing capital loss, debt, speculation, and emotional discipline.
-- Naturally conversational. Never sound like a generic robotic search engine or corporate press release.
+  return `You are "Market Mentor", an empathetic, supportive, and dedicated personal learning companion and study partner inside the ShareMarket application.
+
+COMPANION PERSONALITY & TONE:
+- Warm, encouraging, companionable, and approachable. Speak directly to ${studentName} as a friendly, trusted mentor walking beside them on their learning adventure.
+- Empathetic and reassuring: If a concept seems intimidating or if the student expresses doubts, validate their curiosity ("That's a fantastic question!", "Almost every smart investor struggled with this at first!").
+- Celebrate learning progress naturally and keep morale high. Make them feel empowered and supported.
+- Clear, vivid, and grounded: An experienced friend who loves turning dense financial jargon into crystal-clear everyday stories.
+- Protective & caring: When discussing risk, stop-loss orders, or emotional trading, gently guide them toward capital preservation with brotherly/sisterly wisdom ("Your hard-earned savings come first!").
+- Conversational and human: Write with natural warmth, helpful formatting (bullet points, clear sections), and occasional friendly emoji touches (💡, 📈, 🛡️, 🤝).
 
 TEACHING STYLE & INDIAN MARKET CONTEXT:
-- Use plain language and relatable Indian market examples wherever helpful (e.g. Tata, Reliance, Infosys, Nifty 50, BSE Sensex, samosa shops, IPL ticket pricing, festive season demand).
-- If you use an unfamiliar technical term (e.g., P/E ratio, Ask price, liquidity, Demat, slippage), define it immediately in simple words.
-- Give a practical concrete example, not just an abstract dictionary definition.
-- Break multi-part ideas into clear, digestible steps.
-- Conclude with a helpful follow-up question or thought-provoking prompt that invites the learner to think deeper.
+- Use relatable Indian market examples and cultural touchstones (e.g. Tata, Reliance, Infosys, Nifty 50, BSE Sensex, local chai stalls, festive retail rushes, cricket match tickets).
+- Define technical terms immediately in plain, friendly language.
+- Provide a concrete, everyday analogy before delving into theory.
+- Always close with an encouraging companion check-in or thoughtful follow-up question inviting them to explore further.
 
 CURRENT EXPLANATION MODE: [${isBeginner ? 'BEGINNER (ELI15)' : 'DEEP DIVE'}]
 ${
   isBeginner
     ? `- BEGINNER MODE GUIDELINES:
-  * Prioritize everyday intuitive analogies (e.g. pizza slices for equity shares, lemonade stand revenue, bucket with a leak for inflation).
-  * Assume the student is new to stock markets. Keep sentences accessible and clear.
-  * Avoid technical jargon walls or heavy mathematical proofs.`
+  * Prioritize everyday intuitive analogies (e.g. pizza slices for equity shares, lemonade stand revenue, a leaky bucket for inflation).
+  * Assume the student is taking their first steps in finance. Keep phrasing simple, friendly, and empowering.
+  * Avoid dry math or walls of jargon.`
     : `- DEEP DIVE GUIDELINES:
   * Provide quantitative formulas, market mechanics, institutional order flow nuances, and balance sheet implications.
   * Explain key ratios (P/E, P/B, Debt-to-Equity), order book dynamics (Bid/Ask spread, liquidity traps), and risk-adjusted metrics.
@@ -373,62 +383,74 @@ export async function generateMentorResponse(request: MentorGenerateRequest): Pr
     }
   }
 
-  const ai = getGeminiClient();
-  if (!ai) {
-    throw new Error('GEMINI_API_KEY is not configured on the server. Please ensure the API key is active.');
-  }
-
-  // 6. Resilient model execution with model cascade and transient retry
   let lastError: any = null;
   let successfulAnswer = '';
   let modelUsed = '';
 
-  for (const modelCandidate of MODEL_CASCADE) {
-    // Attempt up to 2 tries per model if transient (503 / 429) error occurs
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelCandidate,
-          contents: [
-            {
-              role: 'user',
-              parts: promptParts,
-            },
-          ],
-          config: {
-            systemInstruction,
-          },
-        });
+  const ai = isGeminiBillingDisabled() ? null : getGeminiClient();
 
-        const text = response.text?.trim();
-        if (text) {
-          successfulAnswer = text;
-          modelUsed = modelCandidate;
+  if (ai) {
+    for (const modelCandidate of MODEL_CASCADE) {
+      // Attempt up to 2 tries per model if transient (503 / 429) error occurs
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelCandidate,
+            contents: [
+              {
+                role: 'user',
+                parts: promptParts,
+              },
+            ],
+            config: {
+              systemInstruction,
+            },
+          });
+
+          const text = response.text?.trim();
+          if (text) {
+            successfulAnswer = text;
+            modelUsed = modelCandidate;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          const status = err.status || (err.message && err.message.includes('503') ? 503 : null);
+          const isTransient = status === 503 || status === 429;
+          const isBillingOr403 = status === 403 || (typeof err.message === 'string' && (err.message.includes('403') || err.message.includes('billing') || err.message.includes('PERMISSION_DENIED')));
+
+          if (isBillingOr403) {
+            markGeminiBillingDisabled();
+            break;
+          }
+
+          // If transient error and this was first attempt on this model, wait briefly and retry
+          if (isTransient && attempt === 1) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            continue;
+          }
+          // Otherwise, break out of retry loop and proceed to next model in cascade
           break;
         }
-      } catch (err: any) {
-        lastError = err;
-        const status = err.status || (err.message && err.message.includes('503') ? 503 : null);
-        const isTransient = status === 503 || status === 429;
+      }
 
-        // If transient error and this was first attempt on this model, wait briefly and retry
-        if (isTransient && attempt === 1) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          continue;
-        }
-        // Otherwise, break out of retry loop and proceed to next model in cascade
+      if (successfulAnswer || isGeminiBillingDisabled()) {
         break;
       }
     }
-
-    if (successfulAnswer) {
-      break;
-    }
   }
 
+  // Graceful Curriculum-Grounded Fallback if Gemini API is disabled, quota-limited, or 403
   if (!successfulAnswer) {
-    const errorMsg = lastError?.message || 'Gemini service is currently unavailable.';
-    throw new Error(`AI Mentor generation failed: ${errorMsg}`);
+    successfulAnswer = generateGroundedEducationalAnswer({
+      question: trimmedQuestion,
+      mode,
+      chunks,
+      learnerContext,
+      currentModule,
+      currentLesson,
+    });
+    modelUsed = 'sharemarket-companion-engine';
   }
 
   return {
@@ -438,4 +460,134 @@ export async function generateMentorResponse(request: MentorGenerateRequest): Pr
     retrievedGlossary: glossaryRefs,
     latencyMs: Date.now() - startTime,
   };
+}
+
+/**
+ * High-quality grounded pedagogical answer generator with a personal companion voice
+ */
+function generateGroundedEducationalAnswer(params: {
+  question: string;
+  mode: 'eli15' | 'deep_dive';
+  chunks: KnowledgeChunk[];
+  learnerContext?: LearnerContext;
+  currentModule?: string;
+  currentLesson?: string;
+}): string {
+  const { question, mode, chunks, learnerContext } = params;
+  const isBeginner = mode === 'eli15';
+  const studentName = learnerContext?.displayName && learnerContext.displayName !== 'Learner' && learnerContext.displayName !== 'Guest'
+    ? learnerContext.displayName
+    : null;
+
+  const greeting = studentName
+    ? `Hey ${studentName}! 😊 Wonderful question — I'm really glad you asked.`
+    : `Hey there! 😊 Wonderful question — let's unpack this together.`;
+
+  // If we found relevant curriculum chunks, synthesize an expert, companionable response
+  if (chunks.length > 0) {
+    const primaryChunk = chunks[0];
+    const secondaryChunk = chunks[1];
+
+    const coreConcept = primaryChunk.content
+      .split('\n')
+      .filter((line) => line.startsWith('- Core Concept') || line.startsWith('- Definition'))
+      .map((l) => l.replace(/^- (Core Concept|Definition): /, ''))
+      .join('\n') ||
+      `In simple terms, **${primaryChunk.title}** is one of the foundational building blocks of smart market decision-making.`;
+
+    const realLifeAnalogy = primaryChunk.content.includes('- Real-Life Analogy')
+      ? primaryChunk.content
+          .split('\n')
+          .find((l) => l.startsWith('- Real-Life Analogy'))
+          ?.replace(/^- Real-Life Analogy \([^)]+\): /, '')
+      : 'Imagine walking into a vibrant local bazaar: buyers and sellers negotiate in real-time, agreeing on prices based on demand, supply, and trust.';
+
+    const keyTakeaway = primaryChunk.content
+      .split('\n')
+      .find((l) => l.startsWith('- Key Takeaway'))
+      ?.replace(/^- Key Takeaway: /, '') ||
+      `Mastering ${primaryChunk.title} builds your market intuition and shields your capital from impulsive choices.`;
+
+    const technicalMechanics = primaryChunk.content
+      .split('\n')
+      .filter((line) => line.startsWith('- Technical Mechanics') || line.startsWith('- Definition'))
+      .map((l) => l.replace(/^- (Technical Mechanics|Definition): /, ''))
+      .join('\n') ||
+      `In financial markets, **${primaryChunk.title}** is analyzed quantitatively to assess risk, capital allocation efficiency, and price momentum.`;
+
+    const riskInsight = primaryChunk.content
+      .split('\n')
+      .find((l) => l.startsWith('- Risk Perspective'))
+      ?.replace(/^- Risk Perspective: /, '') ||
+      'Always limit your capital risk to 1–2% of total portfolio value per trade.';
+
+    const keyFormula = primaryChunk.content
+      .split('\n')
+      .find((l) => l.startsWith('- Key Formula'))
+      ?.replace(/^- Key Formula: /, '');
+
+    if (isBeginner) {
+      return `${greeting}
+
+### 💡 Understanding **${primaryChunk.title}**
+
+${coreConcept}
+
+---
+
+### 🍕 Real-Life Analogy
+${realLifeAnalogy}
+
+---
+
+### 🛡️ Companion Wisdom & Key Takeaway
+- **What this means for you**: ${keyTakeaway}
+- **My rule of thumb**: Never rush into real money trades. You can practice this anytime with ₹10,000 virtual cash in our **Paper Trading Lab**!
+${secondaryChunk ? `\n*Next related topic in your journey*: **${secondaryChunk.title}** (${secondaryChunk.stageInfo || 'ShareMarket Guide'}).` : ''}
+
+How does that feel? Would you like me to walk through a quick real-world Indian company example (like Tata or Reliance), or test it in Paper Trading?`;
+    } else {
+      return `${greeting}
+
+### 📊 Deep Dive: **${primaryChunk.title}**
+
+**Market Mechanics**:
+${technicalMechanics}
+
+${keyFormula ? `**Key Metric / Formula**:\n\`${keyFormula}\`\n` : ''}
+**Risk Perspective & Companion Checklist**:
+- ${riskInsight}
+- Ensure healthy order book depth before entering size orders to prevent execution slippage.
+${secondaryChunk ? `\n*Associated Curriculum Module*: **${secondaryChunk.title}** [${secondaryChunk.stageInfo || 'Advanced Topics'}].` : ''}
+
+Let me know if you want to stress-test this strategy against historical volatility or evaluate an order book scenario!`;
+    }
+  }
+
+  // Fallback for general or conversational questions
+  if (isBeginner) {
+    return `${greeting}
+
+### 💡 Exploring "${question}"
+
+In the stock market, every stock you buy is an actual slice of a living, breathing business. When that company delivers great products and grows profits over time, your fractional slice becomes more valuable!
+
+Here are three golden rules I always remind my learning partners of:
+1. 🛡️ **Capital Preservation First**: Never invest money you'll need in the next 3 to 5 years.
+2. 🧺 **Diversification**: Don't put all your eggs in one basket — spread across sectors.
+3. 🎮 **Practice Zero-Risk First**: Test your theories with virtual capital in our **Paper Trading Lab** until it feels second nature.
+
+What specific stock, concept, or term would you like to dig into next? I'm right here with you!`;
+  } else {
+    return `${greeting}
+
+### 📊 Financial Framework: "${question}"
+
+When breaking this down with institutional discipline:
+1. **Asymmetric Risk/Reward**: Target a minimum 1:2 or 1:3 reward-to-risk ratio so you stay profitable over time.
+2. **Execution Discipline**: Prefer limit orders when price accuracy matters, and understand market liquidity depth.
+3. **Journal Every Trade**: Log your thesis, emotion, and result in the Trading Journal to master your trading psychology.
+
+Would you like to analyze an Indian market scenario or test this directly in our interactive simulators?`;
+  }
 }

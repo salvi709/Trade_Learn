@@ -1,13 +1,39 @@
 import { collection, getDocs, doc, getDoc, limit, query } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { UserProfile, UserProgress, PaperPortfolio } from '../types';
 
 export const ADMIN_OWNER_EMAIL = 'salvisarthak2007@gmail.com';
+export const ADMIN_AUTHORIZED_EMAILS: string[] = [
+  'salvisarthak2007@gmail.com',
+  'sarthak.salvi25@mmit.edu.in',
+];
 export { triggerTactileHaptic } from './mentorHistory';
 
 export function isOwnerAdmin(email?: string | null): boolean {
   if (!email) return false;
-  return email.toLowerCase().trim() === ADMIN_OWNER_EMAIL.toLowerCase();
+  const clean = email.toLowerCase().trim();
+  return ADMIN_AUTHORIZED_EMAILS.some((admin) => admin.toLowerCase() === clean);
+}
+
+export async function getAdminHeaders(adminEmail: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'x-admin-email': adminEmail,
+  };
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await Promise.race([
+        user.getIdToken(),
+        new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 1200)),
+      ]);
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  } catch {
+    // ignore token extraction errors
+  }
+  return headers;
 }
 
 export interface AdminAnalyticsData {
@@ -110,10 +136,9 @@ export interface AdminUserRecord {
 export async function verifyAdminStatus(adminEmail: string): Promise<boolean> {
   if (!isOwnerAdmin(adminEmail)) return false;
   try {
+    const headers = await getAdminHeaders(adminEmail);
     const res = await fetch('/api/admin/verify', {
-      headers: {
-        'x-admin-email': adminEmail,
-      },
+      headers,
     });
     if (!res.ok) return false;
     const data = await res.json();
@@ -130,10 +155,9 @@ export async function fetchPlatformAnalytics(
   adminEmail: string,
   timeRange: '7d' | '30d' | '90d' | 'all' = '30d'
 ): Promise<AdminAnalyticsData> {
+  const headers = await getAdminHeaders(adminEmail);
   const res = await fetch(`/api/admin/analytics?timeRange=${timeRange}`, {
-    headers: {
-      'x-admin-email': adminEmail,
-    },
+    headers,
   });
   if (!res.ok) {
     throw new Error('Failed to fetch admin platform analytics');
@@ -317,19 +341,21 @@ export async function fetchAdminUsers(adminEmail: string): Promise<AdminUserReco
  * Admin Controls API
  */
 export async function fetchAdminControls(adminEmail: string) {
+  const headers = await getAdminHeaders(adminEmail);
   const res = await fetch('/api/admin/controls', {
-    headers: { 'x-admin-email': adminEmail },
+    headers,
   });
   if (!res.ok) throw new Error('Could not fetch admin controls');
   return res.json();
 }
 
 export async function saveAdminControls(adminEmail: string, controls: any) {
+  const headers = await getAdminHeaders(adminEmail);
   const res = await fetch('/api/admin/controls', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-admin-email': adminEmail,
+      ...headers,
     },
     body: JSON.stringify(controls),
   });
@@ -341,11 +367,18 @@ export async function saveAdminControls(adminEmail: string, controls: any) {
  * Admin Audit Logs
  */
 export async function fetchAdminAuditLogs(adminEmail: string) {
+  const headers = await getAdminHeaders(adminEmail);
   const res = await fetch('/api/admin/logs', {
-    headers: { 'x-admin-email': adminEmail },
+    headers,
   });
   if (!res.ok) throw new Error('Could not fetch admin logs');
   return res.json();
+}
+
+export interface AdminIntelligenceResult {
+  answer: string;
+  modelUsed: string;
+  latencyMs?: number;
 }
 
 /**
@@ -356,20 +389,40 @@ export async function askAdminIntelligence(
   question: string,
   history: Array<{ sender: string; text: string }> = [],
   timeRange: string = '30d'
-): Promise<string> {
-  const res = await fetch('/api/admin/mentor', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-admin-email': adminEmail,
-    },
-    body: JSON.stringify({ question, history, timeRange }),
-  });
-  if (!res.ok) {
-    throw new Error('Admin intelligence call failed');
+): Promise<AdminIntelligenceResult> {
+  const headers = await getAdminHeaders(adminEmail);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const res = await fetch('/api/admin/mentor', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({ question, history, timeRange }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody.details || errorBody.message || errorBody.error || `Admin intelligence call failed (${res.status})`);
+    }
+    const data = await res.json();
+    return {
+      answer: data.answer || 'Analysis complete.',
+      modelUsed: data.modelUsed || 'gemini-3.8-flash',
+      latencyMs: data.latencyMs,
+    };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err?.name === 'AbortError') {
+      throw new Error('Analytics processing timed out. Please retry.');
+    }
+    throw err;
   }
-  const data = await res.json();
-  return data.answer || 'Analysis complete.';
 }
 
 /**

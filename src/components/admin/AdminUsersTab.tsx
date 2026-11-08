@@ -15,7 +15,7 @@ import {
   ExternalLink,
   ChevronRight
 } from 'lucide-react';
-import { AdminUserRecord } from '../../services/adminService';
+import { AdminUserRecord, isOwnerAdmin } from '../../services/adminService';
 import { getAvatarById } from '../../config/avatars';
 
 interface AdminUsersTabProps {
@@ -159,7 +159,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users, loading }) 
                           <div>
                             <div className="font-semibold theme-main-text flex items-center gap-1.5">
                               {u.displayName}
-                              {u.email === 'salvisarthak2007@gmail.com' && (
+                              {isOwnerAdmin(u.email) && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-500 border border-amber-500/30 font-bold">
                                   Owner
                                 </span>

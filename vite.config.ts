@@ -9,9 +9,12 @@ dotenv.config();
 
 import { 
   ADMIN_OWNER_EMAIL, 
+  ADMIN_AUTHORIZED_EMAILS,
+  isAuthorizedAdminEmail,
   adminStore, 
   classifyTopic, 
-  generatePlatformAnalytics 
+  generatePlatformAnalytics,
+  generateAdminIntelligenceResponse 
 } from './serverAdmin';
 import { generateMentorResponse } from './serverMentorEngine';
 
@@ -21,7 +24,14 @@ function geminiMentorPlugin() {
     if (!geminiClient) {
       const apiKey = process.env.GEMINI_API_KEY;
       if (apiKey) {
-        geminiClient = new GoogleGenAI({ apiKey });
+        geminiClient = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            },
+          },
+        });
       }
     }
     return geminiClient;
@@ -46,9 +56,23 @@ function geminiMentorPlugin() {
     });
   };
 
-  const checkAdminAuth = (req: any, query: any, bodyData: any): boolean => {
-    const email = req.headers['x-admin-email'] || query.get('adminEmail') || bodyData?.adminEmail;
-    return String(email || '').toLowerCase().trim() === ADMIN_OWNER_EMAIL.toLowerCase();
+  const checkAdminAuth = (req: any, query: any, bodyData: any): { authorized: boolean; email: string } => {
+    let email = req.headers['x-admin-email'] || query?.get?.('adminEmail') || bodyData?.adminEmail;
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim();
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload?.email) {
+            email = payload.email;
+          }
+        }
+      } catch {}
+    }
+    const authorized = isAuthorizedAdminEmail(email);
+    return { authorized, email: email || ADMIN_OWNER_EMAIL };
   };
 
   return {
@@ -131,12 +155,13 @@ function geminiMentorPlugin() {
         const rawBody = req.method === 'POST' ? await parseBody(req) : '{}';
         const bodyData = JSON.parse(rawBody || '{}');
 
-        if (!checkAdminAuth(req, urlObj.searchParams, bodyData)) {
+        const adminAuth = checkAdminAuth(req, urlObj.searchParams, bodyData);
+        if (!adminAuth.authorized) {
           res.statusCode = 403;
           res.setHeader('Content-Type', 'application/json');
           return res.end(JSON.stringify({
             error: 'Access Denied',
-            message: 'Only the platform owner (salvisarthak2007@gmail.com) has permissions to access this command portal.'
+            message: 'Only authorized platform administrators have permissions to access this command portal.'
           }));
         }
 
@@ -145,7 +170,7 @@ function geminiMentorPlugin() {
         if (pathname === '/api/admin/verify') {
           return res.end(JSON.stringify({
             isAdmin: true,
-            email: ADMIN_OWNER_EMAIL,
+            email: adminAuth.email,
             role: 'Owner & Superadmin',
             verifiedAt: new Date().toISOString(),
           }));
@@ -164,7 +189,7 @@ function geminiMentorPlugin() {
             if (typeof freeTierQueryCap === 'number') adminStore.controls.freeTierQueryCap = freeTierQueryCap;
             if (typeof maintenanceMode === 'boolean') adminStore.controls.maintenanceMode = maintenanceMode;
             adminStore.recordAuditLog({
-              adminEmail: ADMIN_OWNER_EMAIL,
+              adminEmail: adminAuth.email,
               action: 'UPDATE_CONTROLS',
               target: 'Platform System Controls',
               details: `Updated parameters: Limit=${adminStore.controls.aiMentorDailyLimit}, Active=${adminStore.controls.geminiActive}`,
@@ -181,77 +206,34 @@ function geminiMentorPlugin() {
 
         if (pathname === '/api/admin/mentor') {
           const { question, history, timeRange = '30d' } = bodyData;
-          const analytics = generatePlatformAnalytics(timeRange);
-          const ai = getGenAI();
-
-          if (!ai) {
-            return res.end(JSON.stringify({
-              answer: `**ShareMarket Admin Intelligence (Dev Fallback)**:
-Current Registered Learners: **${analytics.kpis.totalRegisteredUsers}**
-Daily Active Users (DAU): **${analytics.kpis.dau}** | WAU: **${analytics.kpis.wau}** | MAU: **${analytics.kpis.mau}**
-Average Curriculum Completion: **${analytics.kpis.avgCompletionRate}%**
-AI Mentor Queries: **${analytics.kpis.totalAiQueries}** (Success Rate: ${analytics.aiMentorAnalytics.successRate}%)
-
-Strategic Recommendation:
-1. Module 2 ("Company Valuation") has the lowest quiz score average (84%)—review question clarity.
-2. 76% of users engage actively with Paper Trading.
-3. Cost remains well within budget ($${analytics.aiMentorAnalytics.estimatedCostUSD} USD).`,
-              modelUsed: 'dev-admin-intel',
-            }));
+          if (!question || typeof question !== 'string' || !question.trim()) {
+            res.statusCode = 400;
+            return res.end(JSON.stringify({ error: 'Question is required.' }));
           }
 
           try {
-            const adminSystemPrompt = `You are "ShareMarket Admin Intelligence", an expert educational analytics advisor for the Owner (${ADMIN_OWNER_EMAIL}).
-Live platform metrics:
-- Users: ${analytics.kpis.totalRegisteredUsers}
-- DAU: ${analytics.kpis.dau}, WAU: ${analytics.kpis.wau}, MAU: ${analytics.kpis.mau}
-- Completion Rate: ${analytics.kpis.avgCompletionRate}%
-- Total AI Inquiries: ${analytics.kpis.totalAiQueries}
-- Estimated Cost: $${analytics.aiMentorAnalytics.estimatedCostUSD} USD (₹${analytics.aiMentorAnalytics.estimatedCostINR} INR)
-- Inquired Topics: ${JSON.stringify(analytics.aiMentorAnalytics.topicCounts)}
-Provide concise, executive-level answers with bold numbers and actionable bullet points.`;
+            const result = await generateAdminIntelligenceResponse({
+              question: question.trim(),
+              history,
+              timeRange,
+              adminEmail: adminAuth.email,
+            });
 
-            let historyTranscript = '';
-            if (Array.isArray(history) && history.length > 0) {
-              const recent = history.slice(-6);
-              historyTranscript = `\n\nRecent Admin Conversation History:\n` +
-                recent.map((m: any) => `${m.sender === 'user' ? 'Owner' : 'Admin Intelligence'}: ${m.text}`).join('\n');
-            }
-
-            let answerText = 'Analytics compiled successfully.';
-            let modelUsed = 'gemini-3.8-flash';
-            for (const m of ['gemini-3.8-flash', 'gemini-3.1-flash-lite']) {
-              try {
-                const response = await ai.models.generateContent({
-                  model: m,
-                  contents: [
-                    {
-                      role: 'user',
-                      parts: [{ text: `${historyTranscript ? historyTranscript + '\n\n' : ''}Owner's Question: ${question}` }]
-                    }
-                  ],
-                  config: {
-                    systemInstruction: adminSystemPrompt,
-                  }
-                });
-                if (response.text) {
-                  answerText = response.text;
-                  modelUsed = m;
-                  break;
-                }
-              } catch {
-                // Smooth fallback to next model in list
-              }
-            }
-
-            return res.end(JSON.stringify({
-              answer: answerText,
-              modelUsed,
-              timestamp: new Date().toISOString(),
-            }));
+            return res.end(
+              JSON.stringify({
+                answer: result.answer,
+                modelUsed: result.modelUsed,
+                latencyMs: result.latencyMs,
+                timestamp: new Date().toISOString(),
+              })
+            );
           } catch (e: any) {
+            console.error('Admin mentor endpoint error:', e);
             res.statusCode = 500;
-            return res.end(JSON.stringify({ error: e.message }));
+            return res.end(JSON.stringify({
+              error: 'Failed to synthesize platform intelligence.',
+              details: e?.message || String(e),
+            }));
           }
         }
 
@@ -270,6 +252,9 @@ export default defineConfig(() => {
       },
     },
     server: {
+      host: '0.0.0.0',
+      port: 3000,
+      allowedHosts: true as const,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },

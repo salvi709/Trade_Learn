@@ -57,7 +57,7 @@ import { MarketMentor } from './components/mentor/MarketMentor';
 import { FloatingAIMentor } from './components/mentor/FloatingAIMentor';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminAccessDenied } from './components/admin/AdminAccessDenied';
-import { ADMIN_OWNER_EMAIL } from './services/adminService';
+import { ADMIN_OWNER_EMAIL, isOwnerAdmin } from './services/adminService';
 import {
   MentorConversation,
   MentorMessage,
@@ -68,6 +68,7 @@ import {
   saveMentorMessage,
   renameMentorConversation,
   deleteMentorConversation,
+  deleteMentorMessage,
   clearAllMentorConversations,
   updateMentorMessageAndTruncate,
 } from './services/mentorHistory';
@@ -158,7 +159,7 @@ function AppContent() {
   const defaultWelcomeMessage: MentorMessage = {
     id: 'welcome',
     sender: 'mentor',
-    text: `Hello! I am your Market Mentor in ${APP_NAME}.\n\nWhether you are studying what a P/E ratio means, how stop-loss orders protect your capital, or why companies sell shares, I am here to help. I explain everything using clean, beginner-friendly analogies with zero financial jargon.\n\nAsk any question below!`,
+    text: `Hey there! 👋 I'm your Market Mentor & personal learning companion in ${APP_NAME}.\n\nThink of me as your dedicated financial study buddy: whether you're wondering how P/E ratios work, how stop-loss orders protect your hard-earned savings, or how to spot traps in the market, we're in this together. I break everything down using clean, everyday analogies with zero jargon!\n\nWhat's on your mind today? Ask me any question below!`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     createdAt: new Date().toISOString(),
   };
@@ -916,7 +917,11 @@ function AppContent() {
   };
 
   // Shared AI Market Mentor question handler with persistent history & context window
-  const handleSendMentorMessage = async (questionText: string, attachments?: MentorAttachment[]) => {
+  const handleSendMentorMessage = async (
+    questionText: string,
+    attachments?: MentorAttachment[],
+    isRetry = false
+  ) => {
     const trimmed = questionText.trim();
     if (!trimmed || mentorLoading) return;
 
@@ -944,20 +949,24 @@ function AppContent() {
       attachments,
     };
 
-    // Filter out welcome message placeholder if starting dialogue
-    setMentorMessages((prev) => {
-      const filtered = prev.filter((m) => m.id !== 'welcome');
-      return [...filtered, userMsg];
-    });
+    if (!isRetry) {
+      // Filter out welcome message placeholder if starting dialogue
+      setMentorMessages((prev) => {
+        const filtered = prev.filter((m) => m.id !== 'welcome');
+        return [...filtered, userMsg];
+      });
+
+      if (convId) {
+        void saveMentorMessage(effectiveUid, convId, userMsg);
+      }
+    }
+
     setMentorLoading(true);
     setMentorHasUnreadResponse(false);
 
-    if (convId) {
-      void saveMentorMessage(effectiveUid, convId, userMsg);
-    }
-
     // Build context window from recent turns (last 6 messages)
-    const recentHistory = [...mentorMessages.filter((m) => m.id !== 'welcome'), userMsg]
+    const baseList = mentorMessages.filter((m) => m.id !== 'welcome');
+    const recentHistory = (isRetry ? baseList : [...baseList, userMsg])
       .slice(-6)
       .map((m) => ({ sender: m.sender, text: m.text }));
 
@@ -1139,6 +1148,74 @@ function AppContent() {
     }
   };
 
+  // Individual message deletion handler for removing unwanted questions or answers
+  const handleDeleteMentorMessage = async (messageId: string) => {
+    const convId = activeMentorConversationId;
+    if (convId && messageId !== 'welcome') {
+      const remaining = await deleteMentorMessage(effectiveUid, convId, messageId);
+      setMentorMessages(remaining.length > 0 ? remaining : [defaultWelcomeMessage]);
+    } else {
+      setMentorMessages((prev) => {
+        const remaining = prev.filter((m) => m.id !== messageId);
+        return remaining.length > 0 ? remaining : [defaultWelcomeMessage];
+      });
+    }
+  };
+
+  // Dedicated Retry handler for AI answers
+  const handleRetryMentorMessage = async (targetMsgId?: string) => {
+    if (mentorLoading) return;
+
+    let questionToRetry = '';
+    let attachmentsToRetry: MentorAttachment[] | undefined;
+    const currentMsgs = [...mentorMessages];
+
+    let targetIdx = -1;
+    if (targetMsgId) {
+      targetIdx = currentMsgs.findIndex((m) => m.id === targetMsgId);
+    } else {
+      // Find the last mentor message
+      for (let i = currentMsgs.length - 1; i >= 0; i--) {
+        if (currentMsgs[i].sender === 'mentor') {
+          targetIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (targetIdx !== -1) {
+      // Find the user question preceding this target message
+      for (let i = targetIdx - 1; i >= 0; i--) {
+        if (currentMsgs[i].sender === 'user') {
+          questionToRetry = currentMsgs[i].text;
+          attachmentsToRetry = currentMsgs[i].attachments;
+          break;
+        }
+      }
+      // Remove the target mentor message or error bubble from state and storage
+      const targetMsg = currentMsgs[targetIdx];
+      if (targetMsg && targetMsg.id !== 'welcome') {
+        if (activeMentorConversationId) {
+          void deleteMentorMessage(effectiveUid, activeMentorConversationId, targetMsg.id);
+        }
+        setMentorMessages((prev) => prev.filter((m) => m.id !== targetMsg.id));
+      }
+    }
+
+    // Fallback to the latest user message
+    if (!questionToRetry) {
+      const lastUser = [...currentMsgs].reverse().find((m) => m.sender === 'user');
+      if (lastUser) {
+        questionToRetry = lastUser.text;
+        attachmentsToRetry = lastUser.attachments;
+      }
+    }
+
+    if (!questionToRetry) return;
+
+    await handleSendMentorMessage(questionToRetry, attachmentsToRetry, true);
+  };
+
   // Find next and prev lessons for navigation
   const allLessonsFlat = CURRICULUM_MODULES.flatMap((m) => m.lessons);
   const activeLessonIdx = activeLesson ? allLessonsFlat.findIndex((l) => l.id === activeLesson.id) : -1;
@@ -1277,11 +1354,11 @@ function AppContent() {
 
   // 6.5. Admin Command Portal Route (/admin or activeTab === 'admin')
   if (activeTab === 'admin') {
-    const isOwner = currentUser?.email?.toLowerCase() === ADMIN_OWNER_EMAIL.toLowerCase();
+    const isOwner = isOwnerAdmin(currentUser?.email);
     if (isOwner) {
       return (
         <AdminDashboard
-          adminEmail={currentUser.email}
+          adminEmail={currentUser?.email || ADMIN_OWNER_EMAIL}
           onReturnToApp={() => handleSelectTab('dashboard')}
         />
       );
@@ -1416,6 +1493,8 @@ function AppContent() {
             onChangeExplanationMode={setMentorExplanationMode}
             onSendMessage={handleSendMentorMessage}
             onEditMessage={handleEditMentorMessage}
+            onDeleteMessage={handleDeleteMentorMessage}
+            onRetryMessage={handleRetryMentorMessage}
           />
         )}
 
@@ -1462,7 +1541,7 @@ function AppContent() {
 
         {/* 12. Admin Command Portal (Protected for designated Owner) */}
         {activeTab === 'admin' && (
-          currentUser?.email?.toLowerCase() === ADMIN_OWNER_EMAIL.toLowerCase() ? (
+          isOwnerAdmin(currentUser?.email) ? (
             <AdminDashboard
               adminEmail={currentUser?.email || ADMIN_OWNER_EMAIL}
               onReturnToApp={() => handleSelectTab('dashboard')}
@@ -1485,6 +1564,9 @@ function AppContent() {
         explanationMode={mentorExplanationMode}
         onChangeExplanationMode={setMentorExplanationMode}
         onSendMessage={handleSendMentorMessage}
+        onRetryMessage={handleRetryMentorMessage}
+        onDeleteMessage={handleDeleteMentorMessage}
+        onDeleteConversation={activeMentorConversationId ? () => handleDeleteMentorConversation(activeMentorConversationId) : undefined}
         onClearUnread={() => setMentorHasUnreadResponse(false)}
         onOpenFullMentor={() => handleOpenMentor()}
         currentModuleTitle={currentModuleObj.title}

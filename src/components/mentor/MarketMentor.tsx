@@ -52,6 +52,8 @@ interface MentorProps {
   onChangeExplanationMode?: (mode: 'eli15' | 'deep_dive') => void;
   onSendMessage?: (question: string, attachments?: MentorAttachment[]) => Promise<void> | void;
   onEditMessage?: (messageId: string, newText: string) => Promise<void> | void;
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  onRetryMessage?: (messageId?: string) => Promise<void> | void;
 }
 
 function formatRelativeTime(dateString?: string): string {
@@ -92,12 +94,14 @@ export const MarketMentor: React.FC<MentorProps> = ({
   onChangeExplanationMode,
   onSendMessage: externalSendMessage,
   onEditMessage: externalEditMessage,
+  onDeleteMessage,
+  onRetryMessage,
 }) => {
   // Local state fallbacks if standalone
   const defaultWelcomeMessage: MentorMessage = {
     id: 'welcome',
     sender: 'mentor',
-    text: `Hello! I am your Market Mentor in ${APP_NAME}.\n\nWhether you are studying what a P/E ratio means, how stop-loss orders protect your capital, or why companies sell shares, I am here to help. I explain everything using clean, beginner-friendly analogies with zero financial jargon.\n\nAsk any question below!`,
+    text: `Hey there! 👋 I'm your Market Mentor & personal learning companion in ${APP_NAME}.\n\nThink of me as your financial study buddy: whether you're wondering how P/E ratios work, how stop-loss orders protect your hard-earned savings, or how to spot traps in the market, we're in this together. I break everything down using clean, everyday analogies with zero jargon!\n\nWhat's on your mind today? Ask me any question below!`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     createdAt: new Date().toISOString(),
   };
@@ -187,6 +191,27 @@ export const MarketMentor: React.FC<MentorProps> = ({
       setTimeout(() => setCopiedMessageId(null), 2000);
     } catch (err) {
       console.warn('Copy failed:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    triggerTactileHaptic(8);
+    if (onDeleteMessage) {
+      await onDeleteMessage(msgId);
+    } else {
+      setLocalMessages((prev) => {
+        const remaining = prev.filter((m) => m.id !== msgId);
+        return remaining.length > 0 ? remaining : [defaultWelcomeMessage];
+      });
+    }
+  };
+
+  const handleRetryMessage = async (msgId?: string) => {
+    triggerTactileHaptic(8);
+    if (onRetryMessage) {
+      await onRetryMessage(msgId);
+    } else if (lastFailedQuestion) {
+      handleSendMessage(lastFailedQuestion);
     }
   };
 
@@ -652,8 +677,50 @@ export const MarketMentor: React.FC<MentorProps> = ({
             </div>
           </div>
 
-          {/* Mode selector */}
+          {/* Action buttons and Mode selector */}
           <div className="flex items-center gap-2">
+            {/* Quick New Chat Button */}
+            <button
+              type="button"
+              id="btn-mentor-header-new-chat"
+              onClick={() => {
+                triggerTactileHaptic(6);
+                if (onNewChat) {
+                  onNewChat();
+                } else {
+                  setLocalMessages([defaultWelcomeMessage]);
+                }
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold theme-surface-subtle border theme-border hover:theme-card theme-secondary-text hover:theme-main-text transition-all cursor-pointer active:scale-95"
+              title="Start a fresh conversation"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+
+            {/* Quick Delete Chat Button */}
+            {activeConversationId && (
+              <button
+                type="button"
+                id="btn-mentor-header-delete-chat"
+                onClick={() => {
+                  triggerTactileHaptic(8);
+                  const currentConv = conversations.find((c) => c.id === activeConversationId);
+                  if (currentConv) {
+                    setConvToDelete(currentConv);
+                  } else if (onDeleteConversation) {
+                    onDeleteConversation(activeConversationId);
+                  }
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all cursor-pointer active:scale-95"
+                title="Delete this entire conversation"
+                aria-label="Delete this conversation"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Delete Chat</span>
+              </button>
+            )}
+
             <div className="flex theme-card p-0.5 rounded-xl border theme-border shadow-2xs">
               <button
                 type="button"
@@ -827,40 +894,76 @@ export const MarketMentor: React.FC<MentorProps> = ({
                           )}
                         </div>
 
-                        {/* User Edit Button */}
-                        {isUser && !loading && (
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(msg)}
-                            className="flex items-center gap-1 text-[10px] opacity-80 hover:opacity-100 transition-opacity cursor-pointer active:scale-95 text-white"
-                            title="Edit message and regenerate response"
-                          >
-                            <Edit2 className="w-2.5 h-2.5" />
-                            <span>Edit</span>
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {/* User Edit Button */}
+                          {isUser && !loading && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(msg)}
+                              className="flex items-center gap-1 text-[10px] opacity-80 hover:opacity-100 transition-opacity cursor-pointer active:scale-95 text-white"
+                              title="Edit question and regenerate response"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                              <span>Edit</span>
+                            </button>
+                          )}
 
-                        {/* Mentor Copy Response Button */}
-                        {!isUser && (
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMessage(msg.id, msg.text)}
-                            className="flex items-center gap-1 text-[10px] theme-secondary-text hover:theme-main-text transition-colors cursor-pointer active:scale-95"
-                            title="Copy message to clipboard"
-                          >
-                            {isCopied ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                <span className="text-emerald-400 font-bold">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                          {/* Mentor Retry Response Button */}
+                          {!isUser && msg.id !== 'welcome' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetryMessage(msg.id)}
+                              disabled={loading}
+                              className="flex items-center gap-1 text-[10px] theme-secondary-text hover:text-emerald-400 transition-colors cursor-pointer active:scale-95 disabled:opacity-40"
+                              title="Retry and answer properly"
+                              aria-label="Retry this answer"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5" />
+                              <span>Retry</span>
+                            </button>
+                          )}
+
+                          {/* Mentor Copy Response Button */}
+                          {!isUser && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMessage(msg.id, msg.text)}
+                              className="flex items-center gap-1 text-[10px] theme-secondary-text hover:theme-main-text transition-colors cursor-pointer active:scale-95"
+                              title="Copy message to clipboard"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400 font-bold">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          {/* Delete unwanted individual message button */}
+                          {msg.id !== 'welcome' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              disabled={loading}
+                              className={`flex items-center gap-1 text-[10px] transition-colors cursor-pointer active:scale-95 ${
+                                isUser
+                                  ? 'text-rose-200/80 hover:text-white'
+                                  : 'text-rose-400/80 hover:text-rose-300'
+                              }`}
+                              title="Delete this unwanted message"
+                              aria-label="Delete this message"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -884,16 +987,19 @@ export const MarketMentor: React.FC<MentorProps> = ({
           )}
 
           {/* Retry notice if last request failed */}
-          {lastFailedQuestion && !loading && (
+          {(lastFailedQuestion || messages.some((m) => m.id.startsWith('mentor_error_'))) && !loading && (
             <div className="p-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between gap-3 text-xs text-rose-300">
-              <span>Could not consult Market Mentor. Check connection and retry.</span>
+              <span className="flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Could not reach Market Mentor. Click retry to answer properly.</span>
+              </span>
               <button
                 type="button"
-                onClick={() => handleSendMessage(lastFailedQuestion)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-bold cursor-pointer active:scale-95"
+                onClick={() => handleRetryMessage()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer active:scale-95 shadow-sm transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Retry</span>
+                <span>Retry Now</span>
               </button>
             </div>
           )}

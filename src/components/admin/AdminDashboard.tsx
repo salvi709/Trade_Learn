@@ -33,6 +33,7 @@ import { AdminEngagementTab } from './AdminEngagementTab';
 import { AdminMonetizationTab } from './AdminMonetizationTab';
 import { AdminControlsTab } from './AdminControlsTab';
 import { AdminIntelligenceMentorTab } from './AdminIntelligenceMentorTab';
+import { FloatingAdminAIMentor } from './FloatingAdminAIMentor';
 
 interface AdminDashboardProps {
   adminEmail: string;
@@ -113,9 +114,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminEmail, onRe
                 </span>
               </div>
               <div className="text-[11px] theme-muted-text flex items-center gap-2">
-                <span>Owner: <strong className="theme-main-text font-mono">{ADMIN_OWNER_EMAIL}</strong></span>
+                <span>Admin: <strong className="theme-main-text font-mono">{adminEmail || ADMIN_OWNER_EMAIL}</strong></span>
                 <span>•</span>
-                <span>Gemini 2.5 Flash Online</span>
+                <span>Gemini 3.8 Flash Online</span>
               </div>
             </div>
           </div>
@@ -236,6 +237,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminEmail, onRe
           </>
         )}
       </main>
+
+      {/* Hovering AI Copilot Bot for Admin Section */}
+      <FloatingAdminAIMentor
+        adminEmail={adminEmail}
+        analytics={analytics}
+        activeAdminTab={activeTab}
+        onOpenFullIntelligenceTab={() => setActiveTab('admin_ai')}
+      />
     </div>
   );
 };

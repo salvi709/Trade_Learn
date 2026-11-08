@@ -10,6 +10,8 @@ import {
   Plus,
   Copy,
   Check,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { MentorMessage } from './MarketMentor';
 import { triggerTactileHaptic } from '../../services/mentorHistory';
@@ -21,6 +23,9 @@ interface FloatingAIMentorProps {
   explanationMode: 'eli15' | 'deep_dive';
   onChangeExplanationMode: (mode: 'eli15' | 'deep_dive') => void;
   onSendMessage: (question: string, attachments?: any) => Promise<void> | void;
+  onRetryMessage?: (messageId?: string) => Promise<void> | void;
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  onDeleteConversation?: () => Promise<void> | void;
   onClearUnread: () => void;
   onOpenFullMentor: () => void;
   currentModuleTitle: string;
@@ -38,6 +43,9 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
   explanationMode,
   onChangeExplanationMode,
   onSendMessage,
+  onRetryMessage,
+  onDeleteMessage,
+  onDeleteConversation,
   onClearUnread,
   onOpenFullMentor,
   currentModuleTitle,
@@ -152,6 +160,20 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 )}
+                {onDeleteConversation && messages.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerTactileHaptic(8);
+                      onDeleteConversation();
+                    }}
+                    title="Delete this unwanted conversation"
+                    aria-label="Delete conversation"
+                    className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -239,26 +261,62 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
                         >
                           {msg.time}
                         </span>
-                        {!isUser && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              triggerTactileHaptic(6);
-                              if (navigator.clipboard) {
-                                navigator.clipboard.writeText(msg.text);
-                                setCopiedMsgId(msg.id);
-                                setTimeout(() => setCopiedMsgId(null), 1800);
-                              }
-                            }}
-                            className="text-[9px] theme-secondary-text hover:theme-main-text flex items-center gap-0.5 cursor-pointer active:scale-95"
-                          >
-                            {copiedMsgId === msg.id ? (
-                              <Check className="w-2.5 h-2.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-2.5 h-2.5" />
-                            )}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {!isUser && msg.id !== 'welcome' && onRetryMessage && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerTactileHaptic(8);
+                                onRetryMessage(msg.id);
+                              }}
+                              disabled={loading}
+                              className="text-[9px] theme-secondary-text hover:text-emerald-400 flex items-center gap-0.5 cursor-pointer active:scale-95 disabled:opacity-40"
+                              title="Retry and answer properly"
+                              aria-label="Retry answer"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5" />
+                              <span>Retry</span>
+                            </button>
+                          )}
+                          {!isUser && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerTactileHaptic(6);
+                                if (navigator.clipboard) {
+                                  navigator.clipboard.writeText(msg.text);
+                                  setCopiedMsgId(msg.id);
+                                  setTimeout(() => setCopiedMsgId(null), 1800);
+                                }
+                              }}
+                              className="text-[9px] theme-secondary-text hover:theme-main-text flex items-center gap-0.5 cursor-pointer active:scale-95"
+                              title="Copy message"
+                            >
+                              {copiedMsgId === msg.id ? (
+                                <Check className="w-2.5 h-2.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                          )}
+                          {msg.id !== 'welcome' && onDeleteMessage && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerTactileHaptic(8);
+                                onDeleteMessage(msg.id);
+                              }}
+                              disabled={loading}
+                              className={`text-[9px] flex items-center gap-0.5 cursor-pointer active:scale-95 ${
+                                isUser ? 'text-rose-200/80 hover:text-white' : 'text-rose-400/80 hover:text-rose-300'
+                              }`}
+                              title="Delete this unwanted message"
+                              aria-label="Delete message"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -339,7 +397,7 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
                   ? 'Market Mentor is thinking...'
                   : hasUnreadResponse
                   ? 'New Mentor response ready'
-                  : 'Ask Market Mentor'}
+                  : 'Your Learning Companion · Ask Mentor'}
               </span>
             </motion.div>
           )}

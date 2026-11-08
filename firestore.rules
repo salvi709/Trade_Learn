@@ -14,6 +14,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == 'salvisarthak2007@gmail.com' ||
+        request.auth.token.email == 'sarthak.salvi25@mmit.edu.in' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -21,7 +22,11 @@ service cloud.firestore {
     // Admin Profiles Registry (/admins/{adminId})
     match /admins/{adminId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.auth.token.email == 'salvisarthak2007@gmail.com' || request.auth.uid == adminId);
+      allow write: if isAuthenticated() && (
+        request.auth.token.email == 'salvisarthak2007@gmail.com' ||
+        request.auth.token.email == 'sarthak.salvi25@mmit.edu.in' ||
+        request.auth.uid == adminId
+      );
     }
 
     // Admin Audit Logs
@@ -31,7 +36,12 @@ service cloud.firestore {
 
     // Admin AI Mentor Isolated Conversations
     match /adminMentor/{adminId}/{allPaths=**} {
-      allow read, write: if isAdmin() && request.auth.uid == adminId;
+      allow read, write: if isAdmin() && (
+        request.auth.uid == adminId ||
+        request.auth.token.email == adminId ||
+        adminId == 'salvisarthak2007@gmail.com' ||
+        adminId == 'sarthak.salvi25@mmit.edu.in'
+      );
     }
 
     // User Profile Document (/users/{userId})
