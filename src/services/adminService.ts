@@ -89,6 +89,7 @@ export interface AdminAnalyticsData {
     retention30Day: number;
     streakDistribution: Array<{ range: string; count: number; percent: number }>;
     peakHours: Array<{ hour: string; activity: number }>;
+    peakActivityHoursIST?: Array<{ hour: string; activityIndex: number; context?: string }>;
   };
   paperTradingStats: {
     totalTradesExecuted: number;

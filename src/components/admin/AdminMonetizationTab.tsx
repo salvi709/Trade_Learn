@@ -16,10 +16,19 @@ interface AdminMonetizationTabProps {
 }
 
 export const AdminMonetizationTab: React.FC<AdminMonetizationTabProps> = ({ analytics }) => {
-  const { monetization, kpis } = analytics;
+  const monetization = analytics?.monetization || {
+    freeTierUsers: 0,
+    plusTierUsers: 0,
+    totalRevenueUSD: 0,
+    tierDistribution: [],
+    status: 'educational_free',
+  };
+  const kpis = analytics?.kpis || { totalRegisteredUsers: 0 };
+  const freeTierUsers = monetization.freeTierUsers ?? (kpis.totalRegisteredUsers || 0);
+  const plusTierUsers = monetization.plusTierUsers ?? 0;
 
   const subscriptionDonutData = [
-    { label: 'Free Educational Tier', value: monetization.freeTierUsers || kpis.totalRegisteredUsers, color: '#10B981' },
+    { label: 'Free Educational Tier', value: freeTierUsers, color: '#10B981' },
     { label: 'ShareMarket Plus (Waitlist)', value: 14, color: '#047857' },
   ];
 

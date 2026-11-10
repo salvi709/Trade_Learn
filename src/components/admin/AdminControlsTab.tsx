@@ -286,7 +286,7 @@ export const AdminControlsTab: React.FC<AdminControlsTabProps> = ({ adminEmail, 
               </tr>
             </thead>
             <tbody className="divide-y theme-border">
-              {auditLogs.map((log) => (
+              {(auditLogs || []).map((log) => (
                 <tr key={log.id} className="hover:theme-surface-subtle transition-colors">
                   <td className="py-2.5 px-3 font-mono theme-muted-text whitespace-nowrap">
                     {new Date(log.timestamp).toLocaleString()}

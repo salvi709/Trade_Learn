@@ -395,6 +395,14 @@ export function getEngagementRetentionAnalytics(timeRange: '7d' | '30d' | '90d' 
       { range: '8 - 14 days', count: 5, percent: 16 },
       { range: '15+ days', count: 3, percent: 10 },
     ],
+    peakHours: [
+      { hour: '09:00 IST', activity: 38 },
+      { hour: '12:00 IST', activity: 62 },
+      { hour: '15:30 IST', activity: 88 },
+      { hour: '18:00 IST', activity: 72 },
+      { hour: '21:00 IST', activity: 95 },
+      { hour: '23:00 IST', activity: 44 },
+    ],
     peakActivityHoursIST: [
       { hour: '09:00 IST', activityIndex: 38, context: 'Morning pre-market check' },
       { hour: '12:00 IST', activityIndex: 62, context: 'Mid-day lunch session' },
@@ -551,6 +559,12 @@ export function getRelevantAnalyticsContext(question: string, timeRange: '7d' | 
   };
 }
 
+export interface AdminAttachmentItem {
+  name?: string;
+  mimeType: string;
+  base64: string;
+}
+
 /**
  * Generate Intelligent Admin AI Response using Gemini with Grounded Context
  */
@@ -559,11 +573,62 @@ export async function generateAdminIntelligenceResponse(params: {
   history?: Array<{ sender: string; text: string }>;
   timeRange?: '7d' | '30d' | '90d' | 'all';
   adminEmail: string;
+  attachments?: AdminAttachmentItem[];
 }): Promise<{ answer: string; modelUsed: string; latencyMs: number }> {
   const startTime = Date.now();
-  const { question, history = [], timeRange = '30d', adminEmail } = params;
+  const { question, history = [], timeRange = '30d', adminEmail, attachments = [] } = params;
+  const cleanQ = question.trim();
 
-  const relevantContext = getRelevantAnalyticsContext(question, timeRange);
+  const relevantContext = getRelevantAnalyticsContext(cleanQ, timeRange);
+
+  // Check for immediate casual intent
+  const lowerQ = cleanQ.toLowerCase();
+  const isCasualGreeting = /^(hi|hello|hey|greetings|howdy|good\s*(morning|afternoon|evening))\b/i.test(lowerQ) && lowerQ.length < 30;
+  const isCasualWellbeing = /^(how\s*(are\s*you|r\s*u|is\s*it\s*going|s\s*it\s*going))\b/i.test(lowerQ);
+  const isCasualThanks = /^(thanks|thank\s*you|thx|appreciate\s*it|thank\s*u)\b/i.test(lowerQ);
+  const isCapabilityQuery = /^(what\s+can\s+you\s+do|what\s+can\s+you\s+help|what\s+are\s+your\s+capabilities|who\s+are\s+you|help\s+me)\b/i.test(lowerQ);
+
+  if (isCasualGreeting && (!attachments || attachments.length === 0)) {
+    return {
+      answer: `Hello Administrator! How can I assist you with platform analytics and learner insights today?`,
+      modelUsed: 'sharemarket-admin-engine',
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  if (isCasualWellbeing && (!attachments || attachments.length === 0)) {
+    return {
+      answer: `I'm doing well! Ready to help you monitor learner progress, curriculum drop-off rates, and platform engagement. What metrics are we looking at today?`,
+      modelUsed: 'sharemarket-admin-engine',
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  if (isCasualThanks && (!attachments || attachments.length === 0)) {
+    return {
+      answer: `You're welcome! Let me know if you need any more platform metrics or curriculum insights.`,
+      modelUsed: 'sharemarket-admin-engine',
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  if (isCapabilityQuery && (!attachments || attachments.length === 0)) {
+    return {
+      answer: `Here is what I can assist you with as your ShareMarket Admin Intelligence Copilot:
+
+• **User Acquisition & Activity**: Live counts for registered learners, daily active users (DAU), WAU, and MAU
+• **Curriculum Progression**: Stage completion rates, bottleneck identification, and drop-off analysis
+• **Quiz Analytics**: Average quiz scores across all stages and difficult concepts needing reinforcement
+• **Feature Adoption**: Usage breakdown for Paper Trading, Guided Tour, AI Mentor, and Trading Journal
+• **Cohort Retention**: 7-day and 30-day retention benchmarks, stickiness ratios, and hourly peak activity
+• **Screenshot Inspection**: Upload ShareMarket dashboard, analytics, UI, or error screenshots for analysis
+• **Telemetry Auditing**: Clear distinction between tracked metrics and untracked indicators
+
+What would you like to examine?`,
+      modelUsed: 'sharemarket-admin-engine',
+      latencyMs: Date.now() - startTime,
+    };
+  }
 
   // Lazy-initialize Gemini client with proper user-agent telemetry header
   const apiKey = process.env.GEMINI_API_KEY;
@@ -579,11 +644,13 @@ export async function generateAdminIntelligenceResponse(params: {
     });
   }
 
-  // System prompt enforcing Part 4 (Personality) & Part 5 (Actionable Recommendations)
+  // System prompt enforcing strict intent, image validation, and evidence-based analysis
   const systemInstruction = `You are "ShareMarket Admin Intelligence", an expert educational analytics advisor and platform copilot for the Administrator (${adminEmail}) of the ShareMarket fintech learning platform.
 
 CORE PRINCIPLES & PERSONALITY:
 - Professional, analytical, clear, practical, direct, helpful, and strictly evidence-based.
+- Answer casual conversation (greetings, thanks) briefly, politely, and naturally without forcing an analytics lecture.
+- Answer the administrator's actual question directly in the opening sentence.
 - Explain what the data means rather than simply repeating raw numbers.
 - Distinguish actual observations from possible explanations.
 - Never claim a cause is proven merely because two metrics are correlated.
@@ -594,6 +661,16 @@ CORE PRINCIPLES & PERSONALITY:
   * Why It Matters
   * Suggested Next Step
 - Clarify that destructive or administrative actions (deleting users, resetting records, altering system controls) must be explicitly executed by the administrator in the appropriate dashboard control tabs.
+
+IMAGE UNDERSTANDING & STRICT RELEVANCE RULES:
+- The administrator can upload screenshots of the ShareMarket application: dashboard metrics, analytics graphs, user progress charts, error screens, or UI views.
+- When an image is provided:
+  1. Inspect the screenshot carefully and identify what view or data is visible.
+  2. Answer the administrator's specific question based strictly on what is displayed.
+  3. If text or numbers are blurry, unreadable, or cropped, explicitly state that. Never invent unverified numbers.
+- Unrelated image validation:
+  If the uploaded image is NOT a ShareMarket screenshot, analytics graph, trading chart, or software error screen (for example, a personal selfie, food, pets, random landscape, or unrelated meme), you MUST politely decline and respond:
+  "I can help analyse ShareMarket dashboard, analytics, trading, or error screenshots, but this image appears unrelated. Please upload a relevant platform or analytics screenshot."
 
 RELEVANT PLATFORM ANALYTICS CONTEXT FOR THIS QUERY:
 ${JSON.stringify(relevantContext, null, 2)}
@@ -610,9 +687,9 @@ Stage 8: Trading Psychology & Emotional Traps
 Stage 9: Paper Trading & Market Expectations
 Stage 10: Capstone Mastery Assessment`;
 
-  if (!ai) {
+  if (!ai || isGeminiBillingDisabled()) {
     // Grounded deterministic fallback if API key is temporarily unavailable
-    const answer = generateDeterministicAdminAnswer(question, relevantContext);
+    const answer = generateDeterministicAdminAnswer(cleanQ, relevantContext, attachments);
     return {
       answer,
       modelUsed: 'grounded-admin-engine',
@@ -629,44 +706,64 @@ Stage 10: Capstone Mastery Assessment`;
       .join('\n\n');
   }
 
-  const promptText = `${historyTranscript ? `Recent Conversation History:\n${historyTranscript}\n\n` : ''}Administrator's Question: ${question}`;
+  const promptText = `${historyTranscript ? `Recent Conversation History:\n${historyTranscript}\n\n` : ''}Administrator's Question: ${cleanQ}`;
+
+  const promptParts: any[] = [{ text: promptText }];
+
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    for (const att of attachments) {
+      if (!att || !att.mimeType || !att.base64) continue;
+      const cleanBase64 = att.base64.replace(/^data:[^;]+;base64,/, '');
+      if (att.mimeType.startsWith('image/')) {
+        promptParts.push({
+          inlineData: {
+            mimeType: att.mimeType,
+            data: cleanBase64,
+          },
+        });
+      }
+    }
+  }
 
   let answerText = '';
   let modelUsed = 'gemini-3.8-flash';
 
-  if (ai && !isGeminiBillingDisabled()) {
-    for (const m of ['gemini-3.8-flash', 'gemini-3.1-flash-lite']) {
-      try {
-        const response = await ai.models.generateContent({
-          model: m,
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: promptText }],
-            },
-          ],
-          config: {
-            systemInstruction,
+  for (const m of ['gemini-3.8-flash', 'gemini-3.1-flash-lite']) {
+    try {
+      const response = await ai.models.generateContent({
+        model: m,
+        contents: [
+          {
+            role: 'user',
+            parts: promptParts,
           },
-        });
+        ],
+        config: {
+          systemInstruction,
+        },
+      });
 
-        if (response && response.text) {
-          answerText = response.text;
-          modelUsed = m;
-          break;
-        }
-      } catch (err: any) {
-        const isBillingOr403 = err?.status === 403 || (typeof err?.message === 'string' && (err.message.includes('403') || err.message.includes('billing') || err.message.includes('PERMISSION_DENIED')));
-        if (isBillingOr403) {
-          markGeminiBillingDisabled();
-          break;
-        }
+      if (response && response.text) {
+        answerText = response.text.trim();
+        modelUsed = m;
+        break;
+      }
+    } catch (err: any) {
+      const isBillingOr403 =
+        err?.status === 403 ||
+        (typeof err?.message === 'string' &&
+          (err.message.includes('403') ||
+            err.message.includes('billing') ||
+            err.message.includes('PERMISSION_DENIED')));
+      if (isBillingOr403) {
+        markGeminiBillingDisabled();
+        break;
       }
     }
   }
 
   if (!answerText) {
-    answerText = generateDeterministicAdminAnswer(question, relevantContext);
+    answerText = generateDeterministicAdminAnswer(cleanQ, relevantContext, attachments);
     modelUsed = 'grounded-admin-engine';
   }
 
@@ -680,42 +777,91 @@ Stage 10: Capstone Mastery Assessment`;
 /**
  * Deterministic evidence-based answer generator for guaranteed answers
  */
-function generateDeterministicAdminAnswer(question: string, context: any): string {
-  const q = question.toLowerCase();
+function generateDeterministicAdminAnswer(
+  question: string,
+  context: any,
+  attachments?: AdminAttachmentItem[]
+): string {
+  // If an image was uploaded and Gemini could not process it:
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    return "I'm having trouble analyzing your uploaded screenshot right now due to a temporary service interruption. Please try again.";
+  }
+
+  const q = question.toLowerCase().trim();
   const { trackedMetricsSummary } = context;
   const user = trackedMetricsSummary.userAnalytics || getUserAnalytics();
   const learning = trackedMetricsSummary.learningAnalytics || getLearningAnalytics();
   const features = trackedMetricsSummary.featureUsageAnalytics || getFeatureUsageAnalytics();
   const engagement = trackedMetricsSummary.engagementAndRetention || getEngagementRetentionAnalytics();
 
-  if (q.includes('how many users') && (q.includes('register') || q.includes('total'))) {
+  // 1. Casual Greetings & Acknowledgements
+  if (/^(hi|hello|hey|greetings|howdy|good\s*(morning|afternoon|evening))\b/i.test(q)) {
+    return "Hello Administrator! How can I assist you with platform analytics and learner insights today?";
+  }
+
+  if (/^(how\s*(are\s*you|r\s*u|is\s*it\s*going|s\s*it\s*going))\b/i.test(q)) {
+    return "I'm doing well, ready to help you analyze your platform data. What metrics would you like to review?";
+  }
+
+  if (/^(thanks|thank\s*you|thx|appreciate\s*it)\b/i.test(q)) {
+    return "You're welcome! Let me know if you need any more platform metrics or curriculum insights.";
+  }
+
+  if (/^(what\s+can\s+you\s+do|what\s+can\s+you\s+help|what\s+are\s+your\s+capabilities|who\s+are\s+you|help\s+me)\b/i.test(q)) {
+    return `Here is what I can assist you with as your ShareMarket Admin Intelligence Copilot:
+
+• **User Acquisition & Activity**: Live counts for registered learners, DAU, WAU, and MAU
+• **Curriculum Progression**: Stage completion rates, bottleneck identification, and drop-off analysis
+• **Quiz Analytics**: Average quiz scores by stage and difficult questions needing review
+• **Feature Adoption**: Usage breakdown for Paper Trading, Guided Tour, AI Mentor, and Trading Journal
+• **Cohort Retention**: 7-day and 30-day retention benchmarks and daily peak study hours
+• **Screenshot Inspection**: Upload ShareMarket dashboard, analytics, UI, or error screenshots for analysis
+• **Telemetry Auditing**: Clear distinction between tracked metrics and untracked indicators
+
+What would you like to examine?`;
+  }
+
+  // 2. Specific Analytics Inquiries
+
+  // Registered Users / How many users
+  if ((q.includes('how many') && (q.includes('user') || q.includes('learner') || q.includes('register'))) || (q.includes('registered') && q.includes('user'))) {
     return `### Registered Learners Overview\n\nThere are currently **${user.totalRegisteredUsers} registered learners** on the ShareMarket platform.\n\n- **Weekly Acquisition**: **${user.joinedThisWeek} new users** joined during the last 7 days.\n- **Monthly Acquisition**: **${user.joinedThisMonth} users** joined this month.\n- **Active Cohort**: **${user.dau} Daily Active Users (DAU)** and **${user.wau} Weekly Active Users (WAU)**.`;
   }
 
-  if (q.includes('drop-off') || q.includes('drop off') || (q.includes('highest') && q.includes('stage'))) {
+  // Highest Dropout / Drop-off
+  if (q.includes('dropout') || q.includes('drop-off') || q.includes('drop off') || (q.includes('highest') && (q.includes('drop') || q.includes('stage')))) {
     const s = learning.summary;
     return `### Learning Stage Drop-Off Analysis\n\nBased on curriculum telemetry, drop-off presents two distinct patterns:\n\n1. **Highest Drop-Off by Percentage**: **Stage 4: Understanding Companies & Valuation** with a **${s.highestDropoffStageByPercentage.dropoffRate} drop-off rate** (24 enrolled, 17 completed). Stage 4 also has the platform's lowest average quiz score (**79.2%**), highlighting difficulty with financial ratios (P/E, P/B) and operating margin calculations.\n2. **Highest Drop-Off by Volume**: **Stage 1 to Stage 2 transition**, where **${s.highestDropoffStageByVolume.lostLearners} learners** disengage after completing Financial Foundations (48 enrolled, 38 completed).\n\n**Actionable Recommendation**:\n- **Observation**: Learners struggle significantly with valuation formulas in Stage 4.\n- **Supporting Metrics**: 29.2% drop-off and 79.2% quiz score average.\n- **Why It Matters**: Company valuation is essential for informed investing rather than blind speculation.\n- **Suggested Next Step**: Add an interactive analogy visual (e.g. comparing P/E to how many years of lemonade stand profits you are paying for) before the quiz checkpoint.`;
   }
 
-  if (q.includes('feature') && (q.includes('most') || q.includes('popular') || q.includes('frequently'))) {
+  // Feature usage / Most used feature
+  if (q.includes('feature') && (q.includes('most') || q.includes('popular') || q.includes('frequently') || q.includes('used'))) {
     return `### Feature Usage & Adoption\n\n1. **Most Frequently Used Feature**: **${features.mostUsedFeature}**.\n2. **Top Features by Active Adoption**:\n   - **Learning Roadmap**: 94% adoption (1,420 interactions)\n   - **Interactive Guided Tour**: 88% adoption (310 completions)\n   - **Market Mentor AI**: 82% adoption (${features.aiMentorUsage})\n   - **Paper Trading Lab**: 76% adoption (${features.paperTradingUsage})\n   - **Trading Journal**: 62% adoption (64 entries logged)\n3. **Lowest Engagement Feature**: **${features.lowestEngagementFeature}**. Learners prefer asking the AI Mentor for inline definitions rather than manually browsing the glossary.`;
   }
 
+  // Stage 1 completion
   if (q.includes('stage 1') || q.includes('completed stage 1')) {
     return `### Stage 1 (Financial Foundations) Completion\n\n- **Completed Learners**: **${user.completedStage1Users} out of ${user.totalRegisteredUsers} users** have completed Stage 1.\n- **Completion Rate**: **${user.completedStage1Percent}%**.\n- **Average Quiz Score**: **91.5%** on inflation, compounding, and Rule of 72 questions.\n\n38 learners successfully transitioned from Financial Foundations to Stage 2 (Stock Market Basics).`;
   }
 
-  if (q.includes('retention') || q.includes('7-day') || q.includes('30-day')) {
-    return `### Retention & Cohort Stickiness\n\n- **7-Day Retention Rate**: **${engagement.retention7Day}%** of learners who were active 7 days ago returned and completed learning activities within the week.\n- **30-Day Retention Rate**: **${engagement.retention30Day}%**.\n- **DAU / MAU Stickiness**: **${engagement.stickinessDauMau}%** (${engagement.dau} DAU / ${engagement.mau} MAU), which is strong for an education application where study cadence is typically 2–3 times weekly.\n- **Learning Streaks**: **${engagement.activeStreaksCount} learners** maintain active multi-day learning streaks, with 10% having streaks exceeding 15 days.`;
+  // User engagement summary / active users
+  if (q.includes('engagement') || q.includes('summarize user engagement') || q.includes('active users')) {
+    return `### Learner Engagement & Activity Trends\n\n- **Active Cohort**: **${user.dau} Daily Active Users (DAU)**, **${user.wau} Weekly Active Users (WAU)**, and **${user.mau} Monthly Active Users (MAU)**.\n- **Platform Stickiness (DAU/MAU)**: **${engagement.stickinessDauMau}%**, indicating that nearly a quarter of all monthly learners study on any given day.\n- **Retention**: **78% 7-day retention** and **64% 30-day retention**, demonstrating strong learner habit formation.\n- **Learning Streaks**: **${engagement.activeStreaksCount} learners** maintain active daily streaks, with 10% having streaks over 15 days.\n- **Peak Study Hours**: Highest activity concentrates at **21:00 IST (9:00 PM)** (95 activity index) during evening study, with a secondary surge around **15:30 IST** following Indian market closing hours.`;
   }
 
-  if (q.includes('what should i improve') || q.includes('recommendation') || q.includes('suggest')) {
+  // Retention rates
+  if (q.includes('retention') || q.includes('7-day') || q.includes('30-day')) {
+    return `### Retention & Cohort Stickiness\n\n- **7-Day Retention Rate**: **${engagement.retention7Day}%** of learners who were active 7 days ago returned and completed learning activities within the week.\n- **30-Day Retention Rate**: **${engagement.retention30Day}%**.\n- **DAU / MAU Stickiness**: **${engagement.stickinessDauMau}%** (${engagement.dau} DAU / ${engagement.mau} MAU), which is strong for an education application.\n- **Learning Streaks**: **${engagement.activeStreaksCount} learners** maintain active multi-day learning streaks, with 10% having streaks exceeding 15 days.`;
+  }
+
+  // Recommendations / What to improve
+  if (q.includes('what should i improve') || q.includes('recommendation') || q.includes('suggest') || q.includes('improve my platform')) {
     return `### Actionable Pedagogical & Platform Recommendations
 
 1. **Address Company Valuation Drop-Off (Stage 4)**:
    - **Observation**: Stage 4 ("Understanding Companies & Valuation") experiences the highest drop-off rate on the platform (29.2%) and the lowest quiz average (79.2%).
    - **Supporting Metrics**: 24 enrolled learners, only 17 completed; average quiz score is 79.2% compared to 91.5% in Stage 1.
-   - **Why It Matters**: Company valuation is foundational for moving beyond speculative gambling to disciplined investing. If students fail to grasp P/E and operating margins here, they are prone to abandon later risk management stages.
+   - **Why It Matters**: Company valuation is foundational for moving beyond speculative gambling to disciplined investing.
    - **Suggested Next Step**: Introduce an interactive visual widget (e.g. comparing P/E to paying upfront for 15 years of lemonade stand profits) before the checkpoint quiz.
 
 2. **Smooth the Stage 1 to Stage 2 Transition**:
@@ -731,51 +877,29 @@ function generateDeterministicAdminAnswer(question: string, context: any): strin
    - **Suggested Next Step**: Deep-link glossary terms directly to inline Mentor prompt triggers rather than maintaining a disconnected dictionary tab.`;
   }
 
-  if (q.includes('low completion') || q.includes('lowest completion') || q.includes('lowest score') || q.includes('lowest average') || q.includes('difficult')) {
-    return `### Modules with Low Completion & Challenging Quizzes
+  // Untracked Metrics Check
+  if (q.includes('video') || q.includes('watch time') || q.includes('duration in minutes') || q.includes('referral') || q.includes('utm') || q.includes('payment') || q.includes('card') || q.includes('subscription revenue') || q.includes('refund')) {
+    return `### Telemetry Notice: Metric Not Tracked
 
-1. **Stage 4: Company Valuation & Analysis (Understanding Companies & Valuation)**:
-   - **Completion Rate**: **70.8%** (Lowest across early-to-mid stages).
-   - **Average Quiz Score**: **79.2%** (Lowest quiz average platform-wide).
-   - **Challenging Concepts**: P/E ratio comparisons across cyclical sectors and Operating Margin vs Net Profit deductions.
-2. **Stage 10: Capstone Mastery Assessment**:
-   - **Completion Rate**: **71.4%** (5 of 7 enrolled completed).
-   - **Drop-Off**: 28.6% drop-off.
-   - **Challenging Concepts**: Multi-scenario forensic scam identification.
-3. **Stage 3: Buying & Selling Mechanics**:
-   - **Completion Rate**: **75.0%** (24 of 32 completed).
-   - **Average Quiz Score**: **84.5%**.
-   - **Challenging Concepts**: Limit order fill priorities and bid-ask spread slippage.`;
-  }
-
-  if (q.includes('engagement') || q.includes('trend') || q.includes('active users')) {
-    return `### Learner Engagement & Activity Trends
-
-- **Active Cohort**: **${user.dau} Daily Active Users (DAU)**, **${user.wau} Weekly Active Users (WAU)**, and **${user.mau} Monthly Active Users (MAU)**.
-- **Platform Stickiness (DAU/MAU)**: **${engagement.stickinessDauMau}%**, indicating that nearly a quarter of all monthly learners study on any given day.
-- **Retention**: **78% 7-day retention** and **64% 30-day retention**, demonstrating strong learner habit formation.
-- **Learning Streaks**: **${engagement.activeStreaksCount} learners** maintain active daily streaks, with 10% having streaks over 15 days.
-- **Peak Study Hours**: Highest activity concentrates at **21:00 IST (9:00 PM)** (95 activity index) during evening study, with a secondary surge around **15:30 IST** following Indian market closing hours.`;
-  }
-
-  if (q.includes('video') || q.includes('watch time') || q.includes('duration in minutes') || q.includes('referral') || q.includes('utm') || q.includes('payment') || q.includes('card')) {
-    return `### Telemetry Notice: Metric Untracked
-
-The metric requested (**video playback watch time / session duration in minutes**) is untracked and **not currently tracked** by the ShareMarket analytics instrumentation.
+The metric requested is **not currently tracked** by ShareMarket's analytics instrumentation.
 
 **Reason**:
-1. ShareMarket's curriculum is built on interactive text, financial simulators, and dynamic charts rather than video player embeds.
-2. While lesson entrance and completion timestamps are logged, continuous heartbeat watch time is intentionally not tracked to protect learner privacy and optimize network bandwidth.
+1. ShareMarket's curriculum is built on interactive text, financial simulators, and dynamic charts rather than video player embeds or external video feeds.
+2. While lesson entrance and completion timestamps are logged, continuous heartbeat session duration is intentionally not recorded to protect learner privacy and optimize network bandwidth.
+3. The platform operates on a 100% free educational model with zero real-money payments, credit card processing, or external UTM ad tracking.
 
 **Tracked Metrics Available Instead**:
 - Total registered learners (**${user.totalRegisteredUsers}**)
+- Active learners: **${user.dau} DAU** • **${user.wau} WAU** • **${user.mau} MAU**
 - Stage-by-stage enrollments and completion percentages
 - Quiz accuracy scores
 - Paper trading order execution counts (**${context.trackedMetricsSummary?.paperTradingAnalytics?.totalTradesExecuted || 148} trades**)
 - 7-day and 30-day cohort retention rates (**${engagement.retention7Day}%** and **${engagement.retention30Day}%**)`;
   }
 
-  return `### ShareMarket Platform Executive Summary
+  // General Platform Summary
+  if (q.includes('summarize') || q.includes('summary') || q.includes('overview')) {
+    return `### ShareMarket Platform Executive Summary
 
 - **User Base**: **${user.totalRegisteredUsers} registered learners** (${user.dau} DAU, ${user.wau} WAU, ${user.mau} MAU).
 - **Curriculum Health**: **${user.overallPlatformCompletionRate}%** overall completion rate across all 10 stages.
@@ -783,4 +907,15 @@ The metric requested (**video playback watch time / session duration in minutes*
 - **Feature Engagement**: **Learning Roadmap (94%)** and **Paper Trading (76%)** lead user adoption.
 
 Ask me specific questions regarding retention curves, quiz score breakdowns, or pedagogical recommendations!`;
+  }
+
+  // Default fallback for unclear questions: provide helpful options
+  return `I can help you analyze any aspect of ShareMarket's platform data:
+
+- **Learner Metrics**: "How many registered users do we have?" or "How many completed Stage 1?"
+- **Curriculum Health**: "Which learning stage has the highest dropout?" or "What should I improve in my platform?"
+- **Engagement**: "Summarize user engagement" or "Which feature is being used the most?"
+- **Retention**: "What is our 7-day retention rate?"
+
+What specific metric would you like to review?`;
 }

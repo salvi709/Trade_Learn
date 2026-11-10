@@ -26,6 +26,7 @@ import {
   createAdminMentorConversation,
   saveAdminMentorMessage,
   deleteAdminMentorConversation,
+  deleteAdminMentorMessage,
   clearAllAdminMentorConversations,
   MentorMessage,
   MentorConversation,
@@ -50,6 +51,10 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [currentModel, setCurrentModel] = useState<string>('gemini-3.8-flash');
+
+  // Confirmation modal states (in-app safe, no window.confirm)
+  const [convToDelete, setConvToDelete] = useState<MentorConversation | null>(null);
+  const [showClearModal, setShowClearModal] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,27 +112,42 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
     setLastFailedPrompt(null);
   };
 
-  const handleDeleteSingleConversation = async (convId: string) => {
-    if (!window.confirm('Delete this Admin Intelligence session?')) return;
+  const handleDeleteSingleConversation = (convId: string) => {
     triggerTactileHaptic(8);
-    const adminId = getAdminIdentifier();
-    await deleteAdminMentorConversation(adminId, convId);
+    // 1. Immediately update UI state so session vanishes instantly
     setConversations((prev) => prev.filter((c) => c.id !== convId));
     if (activeConvId === convId) {
       setActiveConvId(null);
       setMessages([defaultWelcome]);
     }
+    setConvToDelete(null);
+    // 2. Concurrently purge storage and Firestore in background
+    const adminId = getAdminIdentifier();
+    void deleteAdminMentorConversation(adminId, convId);
   };
 
-  const handleClearHistory = async () => {
-    if (!window.confirm('Clear all Admin Intelligence conversation history?')) return;
+  const handleClearHistory = () => {
     triggerTactileHaptic(10);
-    const adminId = getAdminIdentifier();
-    await clearAllAdminMentorConversations(adminId);
     setConversations([]);
     setActiveConvId(null);
     setMessages([defaultWelcome]);
+    setShowClearModal(false);
+    const adminId = getAdminIdentifier();
+    void clearAllAdminMentorConversations(adminId);
   };
+
+  const handleDeleteMessage = (messageId: string) => {
+    triggerTactileHaptic(8);
+    setMessages((prev) => {
+      const remaining = prev.filter((m) => m.id !== messageId);
+      return remaining.length > 0 ? remaining : [defaultWelcome];
+    });
+    if (activeConvId && messageId !== 'admin_welcome') {
+      const adminId = getAdminIdentifier();
+      void deleteAdminMentorMessage(adminId, activeConvId, messageId, messages);
+    }
+  };
+
 
   const handleCopy = async (id: string, text: string) => {
     triggerTactileHaptic(6);
@@ -278,10 +298,10 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteSingleConversation(c.id);
+                      setConvToDelete(c);
                     }}
                     title="Delete session"
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-slate-400 transition-opacity cursor-pointer"
+                    className="opacity-70 group-hover:opacity-100 p-1 hover:text-red-400 text-slate-400 transition-opacity cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -294,7 +314,7 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
         {conversations.length > 0 && (
           <button
             type="button"
-            onClick={handleClearHistory}
+            onClick={() => setShowClearModal(true)}
             className="w-full mt-3 py-1.5 px-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             <Trash2 className="w-3 h-3" />
@@ -302,6 +322,7 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
           </button>
         )}
       </div>
+
 
       {/* Main Chat Interface */}
       <div className="lg:col-span-3 theme-card border theme-border rounded-xl flex flex-col justify-between overflow-hidden shadow-xs">
@@ -329,6 +350,29 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {(activeConvId || messages.length > 1) && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerTactileHaptic(8);
+                  if (activeConvId) {
+                    const current = conversations.find((c) => c.id === activeConvId);
+                    if (current) {
+                      setConvToDelete(current);
+                    } else {
+                      handleDeleteSingleConversation(activeConvId);
+                    }
+                  } else {
+                    handleNewChat();
+                  }
+                }}
+                className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-1 transition-colors cursor-pointer px-2 py-1 rounded-md border border-red-500/20"
+                title="Delete this admin session"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Delete Chat</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleNewChat}
@@ -366,28 +410,43 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                   </div>
                   <div className="flex items-center justify-between text-[10px] opacity-70 border-t theme-border pt-1 mt-2">
                     <span>{m.time}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(m.id, m.text)}
-                      className="hover:opacity-100 flex items-center gap-1 cursor-pointer transition-opacity"
-                    >
-                      {copiedId === m.id ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400 font-semibold">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy</span>
-                        </>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(m.id, m.text)}
+                        className="hover:opacity-100 flex items-center gap-1 cursor-pointer transition-opacity"
+                      >
+                        {copiedId === m.id ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400 font-semibold">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                      {m.id !== 'admin_welcome' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMessage(m.id)}
+                          className="hover:opacity-100 flex items-center gap-0.5 cursor-pointer transition-opacity text-red-400/80 hover:text-red-300"
+                          title="Delete this message"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Delete</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })}
+
 
           {loading && (
             <div className="flex gap-3 text-xs items-center theme-muted-text py-2">
@@ -469,6 +528,73 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
           </div>
         </div>
       </div>
+
+      {/* Delete Single Conversation Modal */}
+      {convToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="theme-card border theme-border rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-2xl">
+            <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
+              <Trash2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-bold theme-main-text font-heading text-sm">Delete Admin Session?</h4>
+              <p className="text-xs theme-secondary-text mt-1 leading-relaxed">
+                Delete &ldquo;<strong className="theme-main-text">{convToDelete.title}</strong>&rdquo;? All analytical insights in this thread will be permanently deleted.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setConvToDelete(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold theme-surface-subtle border theme-border theme-secondary-text hover:theme-main-text cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteSingleConversation(convToDelete.id)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white cursor-pointer shadow-xs"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Sessions Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="theme-card border theme-border rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-2xl">
+            <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
+              <Trash2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-bold theme-main-text font-heading text-sm">Clear All Admin Sessions?</h4>
+              <p className="text-xs theme-secondary-text mt-1 leading-relaxed">
+                This will permanently delete all saved administrator intelligence conversations and messages.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowClearModal(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold theme-surface-subtle border theme-border theme-secondary-text hover:theme-main-text cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white cursor-pointer shadow-xs"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

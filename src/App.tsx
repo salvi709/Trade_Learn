@@ -894,27 +894,44 @@ function AppContent() {
     );
   };
 
-  // Delete conversation
+  // Delete conversation with instant optimistic state update
   const handleDeleteMentorConversation = async (convId: string) => {
-    await deleteMentorConversation(effectiveUid, convId);
+    // 1. Immediately update UI state so conversation vanishes instantly
     const remaining = mentorConversations.filter((c) => c.id !== convId);
     setMentorConversations(remaining);
 
     if (activeMentorConversationId === convId) {
       if (remaining.length > 0) {
-        await handleSelectConversation(remaining[0].id);
+        const nextConvId = remaining[0].id;
+        setActiveMentorConversationId(nextConvId);
+        void fetchConversationMessages(effectiveUid, nextConvId).then((msgs) => {
+          setMentorMessages(msgs.length > 0 ? msgs : [defaultWelcomeMessage]);
+        });
       } else {
-        handleNewMentorChat();
+        setActiveMentorConversationId(null);
+        setMentorMessages([defaultWelcomeMessage]);
       }
+    }
+
+    // 2. Concurrently purge storage and Firestore in background
+    try {
+      await deleteMentorConversation(effectiveUid, convId);
+    } catch (err) {
+      console.warn('Background delete mentor conversation note:', err);
     }
   };
 
-  // Clear all conversations
+  // Clear all conversations with instant optimistic state update
   const handleClearAllMentorConversations = async () => {
-    await clearAllMentorConversations(effectiveUid);
     setMentorConversations([]);
     handleNewMentorChat();
+    try {
+      await clearAllMentorConversations(effectiveUid);
+    } catch (err) {
+      console.warn('Background clear all conversations note:', err);
+    }
   };
+
 
   // Shared AI Market Mentor question handler with persistent history & context window
   const handleSendMentorMessage = async (
@@ -1151,16 +1168,18 @@ function AppContent() {
   // Individual message deletion handler for removing unwanted questions or answers
   const handleDeleteMentorMessage = async (messageId: string) => {
     const convId = activeMentorConversationId;
+    // 1. Immediately update UI state so unwanted message disappears instantly
+    setMentorMessages((prev) => {
+      const filtered = prev.filter((m) => m.id !== messageId);
+      return filtered.length > 0 ? filtered : [defaultWelcomeMessage];
+    });
+
+    // 2. Concurrently remove from storage and Firestore
     if (convId && messageId !== 'welcome') {
-      const remaining = await deleteMentorMessage(effectiveUid, convId, messageId);
-      setMentorMessages(remaining.length > 0 ? remaining : [defaultWelcomeMessage]);
-    } else {
-      setMentorMessages((prev) => {
-        const remaining = prev.filter((m) => m.id !== messageId);
-        return remaining.length > 0 ? remaining : [defaultWelcomeMessage];
-      });
+      void deleteMentorMessage(effectiveUid, convId, messageId, mentorMessages);
     }
   };
+
 
   // Dedicated Retry handler for AI answers
   const handleRetryMentorMessage = async (targetMsgId?: string) => {
@@ -1566,7 +1585,13 @@ function AppContent() {
         onSendMessage={handleSendMentorMessage}
         onRetryMessage={handleRetryMentorMessage}
         onDeleteMessage={handleDeleteMentorMessage}
-        onDeleteConversation={activeMentorConversationId ? () => handleDeleteMentorConversation(activeMentorConversationId) : undefined}
+        onDeleteConversation={() => {
+          if (activeMentorConversationId) {
+            void handleDeleteMentorConversation(activeMentorConversationId);
+          } else {
+            handleNewMentorChat();
+          }
+        }}
         onClearUnread={() => setMentorHasUnreadResponse(false)}
         onOpenFullMentor={() => handleOpenMentor()}
         currentModuleTitle={currentModuleObj.title}
@@ -1574,8 +1599,9 @@ function AppContent() {
           mentorConversations.find((c) => c.id === activeMentorConversationId)?.title
         }
         onNewChat={handleNewMentorChat}
-        isHidden={activeTab === 'mentor' || activeTab === 'admin' || showTour}
+        isHidden={activeTab === 'mentor' || showTour}
       />
+
 
       {/* First-Time or Replayed Interactive Guided Product Tour */}
       <InteractiveGuidedTour

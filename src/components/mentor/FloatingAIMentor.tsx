@@ -12,8 +12,11 @@ import {
   Check,
   RotateCcw,
   Trash2,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { MentorMessage } from './MarketMentor';
+import { MentorMessage, MentorAttachment } from './MarketMentor';
 import { triggerTactileHaptic } from '../../services/mentorHistory';
 
 interface FloatingAIMentorProps {
@@ -57,9 +60,37 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [inputText, setInputText] = useState<string>('');
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<MentorAttachment | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachmentError(null);
+
+    // Max 5MB check
+    if (file.size > 5 * 1024 * 1024) {
+      setAttachmentError('File exceeds 5MB limit.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        dataUrl: reader.result as string,
+      });
+      triggerTactileHaptic(6);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Scroll to latest message when panel opens or messages update
   useEffect(() => {
@@ -103,8 +134,12 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
     e.preventDefault();
     const trimmed = inputText.trim();
     if (!trimmed || loading) return;
+    const currentAttachment = attachment;
+    triggerTactileHaptic(8);
     setInputText('');
-    onSendMessage(trimmed);
+    setAttachment(null);
+    setAttachmentError(null);
+    onSendMessage(trimmed, currentAttachment ? [currentAttachment] : undefined);
   };
 
   return (
@@ -160,7 +195,7 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 )}
-                {onDeleteConversation && messages.length > 1 && (
+                {onDeleteConversation && (messages.some((m) => m.id !== 'welcome') || !!activeConversationTitle) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -252,6 +287,31 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
                           : 'theme-surface-subtle border theme-border theme-main-text rounded-tl-none whitespace-pre-line shadow-2xs'
                       }`}
                     >
+                      {/* Attachments preview if present */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                          {msg.attachments.map((att: any, attIdx: number) => (
+                            <div
+                              key={attIdx}
+                              className="p-1 px-1.5 rounded-lg bg-black/20 border border-white/10 flex items-center gap-1.5 text-[10px]"
+                            >
+                              {att.type?.startsWith('image/') && att.dataUrl ? (
+                                <img
+                                  src={att.dataUrl}
+                                  alt="attachment"
+                                  className="w-7 h-7 rounded object-cover border border-white/20 shrink-0"
+                                />
+                              ) : (
+                                <FileText className="w-3.5 h-3.5 opacity-80 shrink-0" />
+                              )}
+                              <span className="truncate max-w-[120px] font-medium">{att.name}</span>
+                              <span className="text-[9px] opacity-75 font-mono">
+                                ({((att.size || 0) / 1024).toFixed(0)} KB)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {msg.text}
                       <div className="flex items-center justify-between gap-2 mt-1">
                         <span
@@ -354,27 +414,87 @@ export const FloatingAIMentor: React.FC<FloatingAIMentorProps> = ({
               </div>
             )}
 
-            {/* Input Form */}
+            {/* Input Form with Attachment Support */}
             <form
               onSubmit={handleSubmit}
-              className="p-3 theme-card border-t theme-border flex items-center gap-2"
+              className="p-3 theme-card border-t theme-border flex flex-col gap-2"
             >
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Ask a market question..."
-                className="flex-1 theme-surface-subtle border theme-border rounded-xl px-3 py-2 text-xs theme-main-text focus:outline-none focus:border-emerald-500 placeholder:theme-muted-text"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim() || loading}
-                aria-label="Send question to Market Mentor"
-                className="p-2 theme-primary-bg disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-2xs transition-all cursor-pointer shrink-0 interactive-btn"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
+              {/* Attachment Preview Chip */}
+              {attachment && (
+                <div className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {attachment.type.startsWith('image/') && attachment.dataUrl ? (
+                      <img
+                        src={attachment.dataUrl}
+                        alt="preview"
+                        className="w-6 h-6 rounded object-cover border border-emerald-500/30 shrink-0"
+                      />
+                    ) : (
+                      <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                    )}
+                    <span className="truncate text-[11px] font-medium theme-main-text">
+                      {attachment.name}
+                    </span>
+                    <span className="text-[10px] theme-muted-text font-mono shrink-0">
+                      ({((attachment.size || 0) / 1024).toFixed(0)} KB)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerTactileHaptic(6);
+                      setAttachment(null);
+                    }}
+                    className="p-1 rounded-md theme-secondary-text hover:theme-main-text hover:bg-black/10 cursor-pointer"
+                    title="Remove attachment"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {attachmentError && (
+                <p className="text-[10px] text-rose-400 font-medium px-1">{attachmentError}</p>
+              )}
+
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerTactileHaptic(6);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={loading}
+                  title="Attach image or chart (max 5MB)"
+                  aria-label="Attach image or chart"
+                  className="p-2 rounded-xl theme-surface-subtle hover:theme-surface-elevated border theme-border theme-secondary-text hover:theme-main-text transition-all cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={attachment ? "Ask a question about this image..." : "Ask a market question..."}
+                  className="flex-1 theme-surface-subtle border theme-border rounded-xl px-3 py-2 text-xs theme-main-text focus:outline-none focus:border-emerald-500 placeholder:theme-muted-text"
+                />
+                <button
+                  type="submit"
+                  disabled={(!inputText.trim() && !attachment) || loading}
+                  aria-label="Send question to Market Mentor"
+                  className="p-2 theme-primary-bg disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-2xs transition-all cursor-pointer shrink-0 interactive-btn"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </form>
           </motion.div>
         )}

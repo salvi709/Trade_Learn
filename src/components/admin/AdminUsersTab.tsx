@@ -31,20 +31,24 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users, loading }) 
   const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
 
   const filteredUsers = useMemo(() => {
-    return users
+    return (users || [])
       .filter((u) => {
+        const dName = u.displayName || '';
+        const uName = u.username || '';
+        const eMail = u.email || '';
+        const q = searchQuery.toLowerCase();
         const matchesSearch =
-          u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.email.toLowerCase().includes(searchQuery.toLowerCase());
+          dName.toLowerCase().includes(q) ||
+          uName.toLowerCase().includes(q) ||
+          eMail.toLowerCase().includes(q);
         const matchesLevel = levelFilter === 'all' || u.experienceLevel === levelFilter;
         return matchesSearch && matchesLevel;
       })
       .sort((a, b) => {
-        if (sortBy === 'progress') return b.overallProgress - a.overallProgress;
-        if (sortBy === 'streak') return b.streakDays - a.streakDays;
-        if (sortBy === 'pnl') return b.realizedPnL - a.realizedPnL;
-        return new Date(b.lastLoginAt).getTime() - new Date(a.lastLoginAt).getTime();
+        if (sortBy === 'progress') return (b.overallProgress || 0) - (a.overallProgress || 0);
+        if (sortBy === 'streak') return (b.streakDays || 0) - (a.streakDays || 0);
+        if (sortBy === 'pnl') return (b.realizedPnL || 0) - (a.realizedPnL || 0);
+        return new Date(b.lastLoginAt || 0).getTime() - new Date(a.lastLoginAt || 0).getTime();
       });
   }, [users, searchQuery, levelFilter, sortBy]);
 

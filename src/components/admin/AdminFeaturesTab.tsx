@@ -19,7 +19,16 @@ interface AdminFeaturesTabProps {
 }
 
 export const AdminFeaturesTab: React.FC<AdminFeaturesTabProps> = ({ analytics }) => {
-  const { featureAdoption, paperTradingStats } = analytics;
+  const featureAdoption = analytics?.featureAdoption || [];
+  const paperTradingStats = analytics?.paperTradingStats || {
+    totalTradesExecuted: 0,
+    buyOrders: 0,
+    sellOrders: 0,
+    mostTradedTickers: [],
+    journalEntriesLogged: 0,
+    winLossRatio: '0% / 0%',
+    avgRiskRewardRatio: '1 : 2',
+  };
 
   const featureBarData = featureAdoption.map((f) => ({
     label: f.name,
@@ -29,8 +38,8 @@ export const AdminFeaturesTab: React.FC<AdminFeaturesTabProps> = ({ analytics })
   }));
 
   const orderDonutData = [
-    { label: 'Buy Orders', value: paperTradingStats.buyOrders, color: '#0D6847', sentiment: 'bull' as const },
-    { label: 'Sell Orders', value: paperTradingStats.sellOrders, color: '#B82E3B', sentiment: 'bear' as const },
+    { label: 'Buy Orders', value: paperTradingStats.buyOrders || 0, color: '#0D6847', sentiment: 'bull' as const },
+    { label: 'Sell Orders', value: paperTradingStats.sellOrders || 0, color: '#B82E3B', sentiment: 'bear' as const },
   ];
 
   return (
@@ -73,7 +82,7 @@ export const AdminFeaturesTab: React.FC<AdminFeaturesTabProps> = ({ analytics })
                 </tr>
               </thead>
               <tbody className="divide-y theme-border">
-                {paperTradingStats.mostTradedTickers.map((t) => (
+                {(paperTradingStats.mostTradedTickers || []).map((t) => (
                   <tr key={t.symbol} className="hover:theme-surface-subtle transition-colors">
                     <td className="py-3 px-3 font-mono font-bold text-emerald-500">
                       {t.symbol}

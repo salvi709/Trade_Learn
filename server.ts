@@ -156,8 +156,9 @@ app.get('/api/admin/analytics', (req: Request, res: Response) => {
 });
 
 // Admin AI Mentor ("ShareMarket Admin Intelligence")
-app.post('/api/admin/mentor', async (req: Request, res: Response) => {
+app.post(['/api/admin/mentor', '/api/admin/intelligence'], async (req: Request, res: Response) => {
   const adminAuth = checkAdminAuth(req);
+
   if (!adminAuth.authorized) {
     return res.status(403).json({
       error: 'Access Denied',

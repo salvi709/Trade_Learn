@@ -20,14 +20,28 @@ interface AdminMentorAnalyticsTabProps {
 }
 
 export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = ({ analytics }) => {
-  const { aiMentorAnalytics } = analytics;
+  const aiMentor = analytics?.aiMentorAnalytics || {
+    totalQueries: 0,
+    successfulQueries: 0,
+    failedQueries: 0,
+    successRate: 100,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    estimatedCostUSD: 0,
+    estimatedCostINR: 0,
+    eli15Count: 0,
+    deepDiveCount: 0,
+    multimodalCount: 0,
+    topicCounts: {},
+    recentMetrics: [],
+  };
 
-  const topicsList = Object.entries(aiMentorAnalytics.topicCounts);
+  const topicsList = Object.entries(aiMentor.topicCounts || {});
 
   const modeDonutData = [
-    { label: 'ELI15 Analogies', value: aiMentorAnalytics.eli15Count, color: '#10B981' },
-    { label: 'Deep Dive Quantitative', value: aiMentorAnalytics.deepDiveCount, color: '#3B82F6' },
-    { label: 'Multimodal Files', value: aiMentorAnalytics.multimodalCount, color: '#F59E0B' },
+    { label: 'ELI15 Analogies', value: aiMentor.eli15Count || 0, color: '#10B981' },
+    { label: 'Deep Dive Quantitative', value: aiMentor.deepDiveCount || 0, color: '#3B82F6' },
+    { label: 'Multimodal Files', value: aiMentor.multimodalCount || 0, color: '#F59E0B' },
   ];
 
   const topicsBarData = topicsList.map(([topic, count]) => ({
@@ -49,10 +63,10 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <Bot className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
-            {aiMentorAnalytics.totalQueries}
+            {aiMentor.totalQueries}
           </div>
           <div className="text-xs text-emerald-500 font-medium">
-            {aiMentorAnalytics.successRate}% Success Resolution
+            {aiMentor.successRate}% Success Resolution
           </div>
         </div>
 
@@ -65,10 +79,10 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <DollarSign className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
-            ${aiMentorAnalytics.estimatedCostUSD} <span className="text-xs font-normal theme-muted-text">USD</span>
+            ${aiMentor.estimatedCostUSD} <span className="text-xs font-normal theme-muted-text">USD</span>
           </div>
           <div className="text-xs theme-muted-text font-mono">
-            Approx ₹{aiMentorAnalytics.estimatedCostINR} INR
+            Approx ₹{aiMentor.estimatedCostINR} INR
           </div>
         </div>
 
@@ -81,10 +95,10 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <Cpu className="w-4 h-4 text-blue-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text font-mono tabular-nums">
-            {(aiMentorAnalytics.totalInputTokens + aiMentorAnalytics.totalOutputTokens).toLocaleString()}
+            {((aiMentor.totalInputTokens || 0) + (aiMentor.totalOutputTokens || 0)).toLocaleString()}
           </div>
           <div className="text-xs theme-muted-text">
-            {aiMentorAnalytics.totalInputTokens.toLocaleString()} in / {aiMentorAnalytics.totalOutputTokens.toLocaleString()} out
+            {(aiMentor.totalInputTokens || 0).toLocaleString()} in / {(aiMentor.totalOutputTokens || 0).toLocaleString()} out
           </div>
         </div>
 
@@ -97,7 +111,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <Paperclip className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
-            {aiMentorAnalytics.multimodalCount}
+            {aiMentor.multimodalCount}
           </div>
           <div className="text-xs text-amber-500 font-medium">
             Charts & Financial PDFs analyzed
@@ -113,7 +127,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
           subtitle="Breakdown between beginner analogies (ELI15), quantitative metrics (Deep Dive), and image uploads"
           data={modeDonutData}
           centerLabel="Total Calls"
-          centerValue={aiMentorAnalytics.totalQueries}
+          centerValue={aiMentor.totalQueries}
         />
 
         {/* Topic Classification Bar Chart */}
@@ -175,7 +189,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
               </tr>
             </thead>
             <tbody className="divide-y theme-border">
-              {aiMentorAnalytics.recentMetrics.map((r, i) => (
+              {(aiMentor.recentMetrics || []).map((r, i) => (
                 <tr key={i} className="hover:theme-surface-subtle transition-colors">
                   <td className="py-2.5 px-3 font-mono theme-muted-text">
                     {new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

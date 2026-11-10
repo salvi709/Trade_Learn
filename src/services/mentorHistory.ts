@@ -191,10 +191,16 @@ export async function fetchUserConversations(uid: string): Promise<MentorConvers
 export async function deleteMentorMessage(
   uid: string,
   conversationId: string,
-  messageId: string
+  messageId: string,
+  currentMessages?: MentorMessage[]
 ): Promise<MentorMessage[]> {
-  const existingMsgs = getLocalMessages(uid, conversationId);
-  const remaining = existingMsgs.filter((m) => m.id !== messageId);
+  // Use provided currentMessages array if available, otherwise retrieve from storage cache
+  const baseMsgs =
+    currentMessages && currentMessages.length > 0
+      ? currentMessages
+      : getLocalMessages(uid, conversationId);
+
+  const remaining = baseMsgs.filter((m) => m.id !== messageId);
   setLocalMessages(uid, conversationId, remaining);
 
   // Update conversation lastMessagePreview if needed
@@ -213,32 +219,39 @@ export async function deleteMentorMessage(
   setLocalConversations(uid, updatedConvs);
 
   if (isCloudUser(uid)) {
-    try {
-      const msgDocRef = doc(
-        db,
-        'users',
-        uid,
-        'mentorConversations',
-        conversationId,
-        'messages',
-        messageId
-      );
-      await deleteDoc(msgDocRef);
-      await setDoc(
-        doc(db, 'users', uid, 'mentorConversations', conversationId),
-        {
-          lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    } catch (err) {
-      console.warn('Could not delete individual message in Firestore:', err);
-    }
+    // Non-blocking fire-and-forget sync to Firestore with timeout safeguard
+    Promise.race([
+      (async () => {
+        const msgDocRef = doc(
+          db,
+          'users',
+          uid,
+          'mentorConversations',
+          conversationId,
+          'messages',
+          messageId
+        );
+        await deleteDoc(msgDocRef);
+        await setDoc(
+          doc(db, 'users', uid, 'mentorConversations', conversationId),
+          {
+            lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      })(),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('Cloud delete message timeout')), 1500)
+      ),
+    ]).catch((err) => {
+      console.warn('Note on cloud message deletion:', err?.message || err);
+    });
   }
 
   return remaining;
 }
+
 
 /**
  * Fetch all messages for a specific conversation, ordered chronologically.
@@ -454,7 +467,7 @@ export async function deleteMentorConversation(
   uid: string,
   conversationId: string
 ): Promise<void> {
-  // Local cleanup
+  // 1. Local cleanup immediately and synchronously
   const existingConvs = getLocalConversations(uid);
   setLocalConversations(
     uid,
@@ -462,25 +475,41 @@ export async function deleteMentorConversation(
   );
   removeLocalConversation(uid, conversationId);
 
+  // 2. Cloud Firestore deletion: delete main conversation doc first so it vanishes from listing immediately
   if (isCloudUser(uid)) {
     try {
-      const msgsCol = collection(
-        db,
-        'users',
-        uid,
-        'mentorConversations',
-        conversationId,
-        'messages'
-      );
-      const snap = await getDocs(msgsCol);
-      const batch = writeBatch(db);
+      const convDocRef = doc(db, 'users', uid, 'mentorConversations', conversationId);
+      // Delete primary document first so queries immediately omit it
+      await Promise.race([
+        deleteDoc(convDocRef),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Delete conv doc timeout')), 2000)
+        ),
+      ]);
 
-      snap.forEach((d) => batch.delete(d.ref));
-      batch.delete(doc(db, 'users', uid, 'mentorConversations', conversationId));
-
-      await batch.commit();
+      // Clean up subcollection messages asynchronously in background
+      void (async () => {
+        try {
+          const msgsCol = collection(
+            db,
+            'users',
+            uid,
+            'mentorConversations',
+            conversationId,
+            'messages'
+          );
+          const snap = await getDocs(msgsCol);
+          if (!snap.empty) {
+            const batch = writeBatch(db);
+            snap.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+          }
+        } catch (subErr) {
+          console.warn('Subcollection cleanup note:', subErr);
+        }
+      })();
     } catch (err) {
-      console.warn('Could not delete conversation in Firestore:', err);
+      console.warn('Note on deleting conversation in Firestore:', err);
     }
   }
 }
@@ -497,22 +526,25 @@ export async function clearAllMentorConversations(uid: string): Promise<void> {
     try {
       const convsCol = collection(db, 'users', uid, 'mentorConversations');
       const convsSnap = await getDocs(convsCol);
-      const batch = writeBatch(db);
-
-      for (const convDoc of convsSnap.docs) {
-        const msgsSnap = await getDocs(
-          collection(db, 'users', uid, 'mentorConversations', convDoc.id, 'messages')
-        );
-        msgsSnap.forEach((m) => batch.delete(m.ref));
-        batch.delete(convDoc.ref);
+      if (!convsSnap.empty) {
+        const batch = writeBatch(db);
+        for (const convDoc of convsSnap.docs) {
+          batch.delete(convDoc.ref);
+          try {
+            const msgsSnap = await getDocs(
+              collection(db, 'users', uid, 'mentorConversations', convDoc.id, 'messages')
+            );
+            msgsSnap.forEach((m) => batch.delete(m.ref));
+          } catch {}
+        }
+        await batch.commit();
       }
-
-      await batch.commit();
     } catch (err) {
-      console.warn('Could not clear all conversations in Firestore:', err);
+      console.warn('Note on clearing all conversations in Firestore:', err);
     }
   }
 }
+
 
 /**
  * Update an existing user message, prune all subsequent messages (to avoid orphaned replies),
@@ -740,6 +772,7 @@ export async function saveAdminMentorMessage(adminUid: string, convId: string, m
 }
 
 export async function deleteAdminMentorConversation(adminUid: string, convId: string): Promise<void> {
+  // 1. Immediately delete from local storage
   const existing = getAdminLocalConvs(adminUid);
   setAdminLocalConvs(
     adminUid,
@@ -748,19 +781,80 @@ export async function deleteAdminMentorConversation(adminUid: string, convId: st
   const s = getStorage();
   s?.removeItem(`smll_admin_intel_msgs_${adminUid}_${convId}`);
 
+  // 2. Cloud Firestore deletion: delete main conversation doc first with timeout race
   if (isCloudUser(adminUid)) {
     try {
-      const msgsSnap = await getDocs(
-        collection(db, 'adminMentor', adminUid, 'conversations', convId, 'messages')
-      );
-      const batch = writeBatch(db);
-      msgsSnap.forEach((m) => batch.delete(m.ref));
-      batch.delete(doc(db, 'adminMentor', adminUid, 'conversations', convId));
-      await batch.commit();
+      const convDocRef = doc(db, 'adminMentor', adminUid, 'conversations', convId);
+      await Promise.race([
+        deleteDoc(convDocRef),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Cloud delete timeout')), 2000)),
+      ]);
+
+      // Clean up subcollection messages asynchronously in background
+      void (async () => {
+        try {
+          const msgsSnap = await getDocs(
+            collection(db, 'adminMentor', adminUid, 'conversations', convId, 'messages')
+          );
+          if (!msgsSnap.empty) {
+            const batch = writeBatch(db);
+            msgsSnap.forEach((m) => batch.delete(m.ref));
+            await batch.commit();
+          }
+        } catch (subErr) {
+          console.warn('Admin subcollection cleanup note:', subErr);
+        }
+      })();
     } catch (err) {
-      console.warn('Could not delete admin conversation in Firestore:', err);
+      console.warn('Note on deleting admin conversation in Firestore:', err);
     }
   }
+}
+
+export async function deleteAdminMentorMessage(
+  adminUid: string,
+  convId: string,
+  messageId: string,
+  currentMessages?: MentorMessage[]
+): Promise<MentorMessage[]> {
+  const baseMsgs =
+    currentMessages && currentMessages.length > 0
+      ? currentMessages
+      : getAdminLocalMsgs(adminUid, convId);
+
+  const remaining = baseMsgs.filter((m) => m.id !== messageId);
+  setAdminLocalMsgs(adminUid, convId, remaining);
+
+  const lastMsg = remaining[remaining.length - 1];
+  const convs = getAdminLocalConvs(adminUid);
+  const updated = convs.map((c) =>
+    c.id === convId
+      ? { ...c, updatedAt: new Date().toISOString(), lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '' }
+      : c
+  );
+  setAdminLocalConvs(adminUid, updated);
+
+  if (isCloudUser(adminUid)) {
+    Promise.race([
+      (async () => {
+        const msgDocRef = doc(db, 'adminMentor', adminUid, 'conversations', convId, 'messages', messageId);
+        await deleteDoc(msgDocRef);
+        await setDoc(
+          doc(db, 'adminMentor', adminUid, 'conversations', convId),
+          {
+            updatedAt: new Date().toISOString(),
+            lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
+          },
+          { merge: true }
+        );
+      })(),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Cloud timeout')), 1500)),
+    ]).catch((err) => {
+      console.warn('Note on cloud message deletion:', err?.message || err);
+    });
+  }
+
+  return remaining;
 }
 
 export async function clearAllAdminMentorConversations(adminUid: string): Promise<void> {
@@ -772,18 +866,23 @@ export async function clearAllAdminMentorConversations(adminUid: string): Promis
   if (isCloudUser(adminUid)) {
     try {
       const snap = await getDocs(collection(db, 'adminMentor', adminUid, 'conversations'));
-      const batch = writeBatch(db);
-      for (const d of snap.docs) {
-        const msgs = await getDocs(collection(db, 'adminMentor', adminUid, 'conversations', d.id, 'messages'));
-        msgs.forEach((m) => batch.delete(m.ref));
-        batch.delete(d.ref);
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        for (const d of snap.docs) {
+          batch.delete(d.ref);
+          try {
+            const msgs = await getDocs(collection(db, 'adminMentor', adminUid, 'conversations', d.id, 'messages'));
+            msgs.forEach((m) => batch.delete(m.ref));
+          } catch {}
+        }
+        await batch.commit();
       }
-      await batch.commit();
     } catch {
       // ignore
     }
   }
 }
+
 
 /**
  * Tactile Haptic Vibration Feedback Helper (safe on all platforms)

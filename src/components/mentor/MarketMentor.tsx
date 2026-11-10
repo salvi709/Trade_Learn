@@ -567,9 +567,9 @@ export const MarketMentor: React.FC<MentorProps> = ({
                     )}
                   </div>
 
-                  {/* Action buttons on hover / focus */}
+                  {/* Action buttons on hover / touch / focus */}
                   {!isEditing && (
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-0.5 opacity-80 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
                       <button
                         type="button"
                         onClick={(e) => handleStartRename(conv, e)}
@@ -594,6 +594,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                       </button>
                     </div>
                   )}
+
                 </div>
               );
             })
@@ -699,17 +700,26 @@ export const MarketMentor: React.FC<MentorProps> = ({
             </button>
 
             {/* Quick Delete Chat Button */}
-            {activeConversationId && (
+            {(activeConversationId || messages.some((m) => m.id !== 'welcome')) && (
               <button
                 type="button"
                 id="btn-mentor-header-delete-chat"
                 onClick={() => {
                   triggerTactileHaptic(8);
-                  const currentConv = conversations.find((c) => c.id === activeConversationId);
-                  if (currentConv) {
-                    setConvToDelete(currentConv);
-                  } else if (onDeleteConversation) {
-                    onDeleteConversation(activeConversationId);
+                  if (activeConversationId) {
+                    const currentConv = conversations.find((c) => c.id === activeConversationId);
+                    if (currentConv) {
+                      setConvToDelete(currentConv);
+                    } else if (onDeleteConversation) {
+                      void onDeleteConversation(activeConversationId);
+                    }
+                  } else {
+                    // Chat has not been saved into a named conversation yet, clear active messages
+                    if (onNewChat) {
+                      onNewChat();
+                    } else {
+                      setLocalMessages([defaultWelcomeMessage]);
+                    }
                   }
                 }}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all cursor-pointer active:scale-95"
@@ -720,6 +730,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                 <span className="hidden sm:inline">Delete Chat</span>
               </button>
             )}
+
 
             <div className="flex theme-card p-0.5 rounded-xl border theme-border shadow-2xs">
               <button
@@ -1148,10 +1159,11 @@ export const MarketMentor: React.FC<MentorProps> = ({
                 type="button"
                 onClick={async () => {
                   triggerTactileHaptic(8);
-                  if (onDeleteConversation) {
-                    await onDeleteConversation(convToDelete.id);
-                  }
+                  const targetId = convToDelete.id;
                   setConvToDelete(null);
+                  if (onDeleteConversation) {
+                    await onDeleteConversation(targetId);
+                  }
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer active:scale-95 shadow-xs"
               >
@@ -1193,10 +1205,10 @@ export const MarketMentor: React.FC<MentorProps> = ({
                 type="button"
                 onClick={async () => {
                   triggerTactileHaptic(8);
+                  setShowClearAllModal(false);
                   if (onClearAllConversations) {
                     await onClearAllConversations();
                   }
-                  setShowClearAllModal(false);
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer active:scale-95 shadow-xs"
               >
@@ -1206,6 +1218,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

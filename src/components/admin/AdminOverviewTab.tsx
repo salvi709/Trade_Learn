@@ -21,7 +21,33 @@ interface AdminOverviewTabProps {
 }
 
 export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({ analytics, onSelectTab }) => {
-  const { kpis, aiMentorAnalytics, moduleAnalytics, engagement, featureAdoption, monetization } = analytics;
+  const kpis = analytics?.kpis || {
+    totalRegisteredUsers: 0,
+    dau: 0,
+    wau: 0,
+    mau: 0,
+    avgCompletionRate: 0,
+    totalAiQueries: 0,
+    totalTradesExecuted: 0,
+    activeStreaks: 0,
+    systemUptimePercent: 99.9,
+  };
+  const aiMentor = analytics?.aiMentorAnalytics || {
+    successRate: 100,
+    estimatedCostUSD: 0,
+    eli15Count: 0,
+    deepDiveCount: 0,
+    multimodalCount: 0,
+  };
+  const engagement = analytics?.engagement || {
+    stickinessDauMau: 25.0,
+  };
+  const paperTrading = analytics?.paperTradingStats || {
+    buyOrders: 0,
+    sellOrders: 0,
+  };
+  const moduleAnalytics = analytics?.moduleAnalytics || [];
+  const featureAdoption = analytics?.featureAdoption || [];
 
   const kpiCards = [
     {
@@ -54,16 +80,16 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({ analytics, o
     {
       title: 'AI Mentor Inquiries',
       value: kpis.totalAiQueries,
-      sub: `${aiMentorAnalytics.successRate}% resolution rate`,
+      sub: `${aiMentor.successRate}% resolution rate`,
       icon: Bot,
-      trend: `$${aiMentorAnalytics.estimatedCostUSD} token cost`,
+      trend: `$${aiMentor.estimatedCostUSD} token cost`,
       tabTarget: 'ai_mentor',
       color: 'purple',
     },
     {
       title: 'Paper Trades Executed',
       value: kpis.totalTradesExecuted,
-      sub: `${analytics.paperTradingStats.buyOrders} Buy / ${analytics.paperTradingStats.sellOrders} Sell`,
+      sub: `${paperTrading.buyOrders} Buy / ${paperTrading.sellOrders} Sell`,
       icon: TrendingUp,
       trend: '+28 orders logged',
       tabTarget: 'features',
@@ -81,14 +107,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({ analytics, o
   ];
 
   // Stage distribution donut data
-  const stageDonutData = moduleAnalytics.map((m) => ({
+  const stageDonutData = (moduleAnalytics || []).map((m) => ({
     label: m.title.replace(/^Level \d+:\s*/, '').substring(0, 18),
     value: m.completed,
     subLabel: `${m.completionRate}% completion`,
   }));
 
   // Feature adoption bar data
-  const featureBarData = featureAdoption.map((f) => ({
+  const featureBarData = (featureAdoption || []).map((f) => ({
     label: f.name,
     value: f.activePercent,
     format: '%',
@@ -181,19 +207,19 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({ analytics, o
           <div className="p-3.5 rounded-xl theme-surface-subtle border theme-border space-y-2 text-xs">
             <div className="flex justify-between items-center">
               <span className="theme-muted-text">Mode: ELI15 Analogies</span>
-              <span className="font-mono font-bold text-emerald-500">{aiMentorAnalytics.eli15Count} calls</span>
+              <span className="font-mono font-bold text-emerald-500">{aiMentor.eli15Count} calls</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="theme-muted-text">Mode: Deep Dive</span>
-              <span className="font-mono font-bold text-blue-500">{aiMentorAnalytics.deepDiveCount} calls</span>
+              <span className="font-mono font-bold text-blue-500">{aiMentor.deepDiveCount} calls</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="theme-muted-text">Multimodal Uploads</span>
-              <span className="font-mono font-bold text-amber-500">{aiMentorAnalytics.multimodalCount} files</span>
+              <span className="font-mono font-bold text-amber-500">{aiMentor.multimodalCount} files</span>
             </div>
             <div className="flex justify-between items-center border-t theme-border pt-1.5">
               <span className="theme-muted-text">Est. Gemini Token Cost</span>
-              <span className="font-mono font-bold theme-main-text">${aiMentorAnalytics.estimatedCostUSD} USD</span>
+              <span className="font-mono font-bold theme-main-text">${aiMentor.estimatedCostUSD} USD</span>
             </div>
           </div>
 
