@@ -963,7 +963,7 @@ function AppContent() {
       text: trimmed,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: nowIso,
-      attachments,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
     };
 
     if (!isRetry) {

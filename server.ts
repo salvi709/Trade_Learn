@@ -166,7 +166,7 @@ app.post(['/api/admin/mentor', '/api/admin/intelligence'], async (req: Request, 
     });
   }
 
-  const { question, history, timeRange = '30d' } = req.body;
+  const { question, history, timeRange = '30d', attachments } = req.body;
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'Question is required.' });
   }
@@ -177,6 +177,7 @@ app.post(['/api/admin/mentor', '/api/admin/intelligence'], async (req: Request, 
       history,
       timeRange,
       adminEmail: adminAuth.email,
+      attachments,
     });
 
     return res.json({

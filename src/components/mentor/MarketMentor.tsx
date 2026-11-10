@@ -329,7 +329,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
       text: textToSend,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: nowIso,
-      attachments: currentAttachment ? [currentAttachment] : undefined,
+      ...(currentAttachment ? { attachments: [currentAttachment] } : {}),
     };
 
     setLocalMessages((prev) => [...prev, userMsg]);
@@ -383,6 +383,16 @@ export const MarketMentor: React.FC<MentorProps> = ({
     } catch (err: any) {
       console.warn('Market Mentor inquiry failed:', err);
       setLastFailedQuestion(textToSend);
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: 'mentor_error_' + Date.now(),
+          sender: 'mentor',
+          text: `⚠️ **Could not reach Market Mentor**: ${err?.message || 'The AI service is experiencing high demand.'}\n\nPlease click **Retry** below or re-submit your question.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLocalLoading(false);
     }

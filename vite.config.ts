@@ -205,7 +205,7 @@ function geminiMentorPlugin() {
         }
 
         if (pathname === '/api/admin/mentor') {
-          const { question, history, timeRange = '30d' } = bodyData;
+          const { question, history, timeRange = '30d', attachments } = bodyData;
           if (!question || typeof question !== 'string' || !question.trim()) {
             res.statusCode = 400;
             return res.end(JSON.stringify({ error: 'Question is required.' }));
@@ -217,6 +217,7 @@ function geminiMentorPlugin() {
               history,
               timeRange,
               adminEmail: adminAuth.email,
+              attachments,
             });
 
             return res.end(

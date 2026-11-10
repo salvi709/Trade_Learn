@@ -13,12 +13,16 @@ import {
   ArrowUpRight,
   AlertTriangle,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Paperclip,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import { 
   AdminAnalyticsData, 
   askAdminIntelligence, 
-  triggerTactileHaptic 
+  triggerTactileHaptic,
+  AdminAttachment
 } from '../../services/adminService';
 import {
   fetchAdminMentorConversations,
@@ -51,6 +55,33 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [currentModel, setCurrentModel] = useState<string>('gemini-3.8-flash');
+  const [attachment, setAttachment] = useState<AdminAttachment | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachmentError(null);
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAttachmentError('File exceeds 5MB limit. Please upload an image smaller than 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        name: file.name,
+        type: file.type || 'image/png',
+        size: file.size,
+        dataUrl: reader.result as string,
+      });
+      triggerTactileHaptic(6);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Confirmation modal states (in-app safe, no window.confirm)
   const [convToDelete, setConvToDelete] = useState<MentorConversation | null>(null);
@@ -160,17 +191,21 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
 
   const handleSend = async (customPrompt?: string) => {
     const textToSend = (customPrompt || inputText).trim();
-    if (!textToSend || loading) return;
+    if ((!textToSend && !attachment) || loading) return;
 
+    const currentAttachment = attachment;
     triggerTactileHaptic(8);
     setInputText('');
+    setAttachment(null);
+    setAttachmentError(null);
     setLastError(null);
     setLastFailedPrompt(null);
 
     const adminId = getAdminIdentifier();
     let convId = activeConvId;
+    const initialTitle = textToSend || (currentAttachment ? `Screenshot: ${currentAttachment.name}` : 'Admin Analysis');
     if (!convId) {
-      const newConv = await createAdminMentorConversation(adminId, textToSend);
+      const newConv = await createAdminMentorConversation(adminId, initialTitle);
       convId = newConv.id;
       setActiveConvId(convId);
       setConversations((prev) => [newConv, ...prev]);
@@ -179,9 +214,21 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
     const userMsg: MentorMessage = {
       id: 'admin_usr_' + Date.now(),
       sender: 'user',
-      text: textToSend,
+      text: textToSend || (currentAttachment ? `[Uploaded Image: ${currentAttachment.name}]` : ''),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
+      ...(currentAttachment
+        ? {
+            attachments: [
+              {
+                name: currentAttachment.name || 'screenshot.png',
+                type: currentAttachment.type,
+                size: currentAttachment.size,
+                dataUrl: currentAttachment.dataUrl,
+              },
+            ],
+          }
+        : {}),
     };
 
     setMessages((prev) => [...prev.filter((m) => m.id !== 'admin_welcome'), userMsg]);
@@ -197,11 +244,14 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
         .slice(-6)
         .map((m) => ({ sender: m.sender, text: m.text }));
 
+      const queryForAI = textToSend || 'Please analyze this uploaded screenshot and explain the metrics or elements visible.';
+
       const result = await askAdminIntelligence(
         adminEmail,
-        textToSend,
-        [...recentHistory, { sender: 'user', text: textToSend }],
-        analytics.timeRange
+        queryForAI,
+        [...recentHistory, { sender: 'user', text: queryForAI }],
+        analytics.timeRange,
+        currentAttachment ? [currentAttachment] : undefined
       );
 
       setCurrentModel(result.modelUsed);
@@ -408,6 +458,21 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                   <div className="whitespace-pre-wrap font-sans text-xs space-y-2 leading-relaxed">
                     {m.text}
                   </div>
+                  {m.attachments && m.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 my-2">
+                      {m.attachments.map((att, i) => (
+                        <div key={i} className="rounded-lg overflow-hidden border border-white/20 bg-black/30 max-w-[240px]">
+                          {att.dataUrl && (
+                            <img src={att.dataUrl} alt={att.name || 'Screenshot'} className="max-h-40 w-auto object-contain bg-black/40" />
+                          )}
+                          <div className="p-1 text-[10px] truncate px-1.5 opacity-80 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span className="truncate">{att.name || 'Screenshot'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-[10px] opacity-70 border-t theme-border pt-1 mt-2">
                     <span>{m.time}</span>
                     <div className="flex items-center gap-2">
@@ -502,7 +567,44 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
             </div>
           )}
 
+          {attachment && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400">
+              <ImageIcon className="w-4 h-4 shrink-0" />
+              <span className="truncate flex-1 font-medium">{attachment.name}</span>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                className="p-1 hover:bg-emerald-500/20 rounded-md transition-colors cursor-pointer text-emerald-300"
+                title="Remove image"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          {attachmentError && (
+            <div className="text-[11px] text-red-400 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>{attachmentError}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload ShareMarket dashboard or analytics screenshot"
+              aria-label="Upload screenshot"
+              className="p-2 rounded-lg theme-surface-elevated hover:theme-card border theme-border theme-muted-text hover:theme-main-text transition-colors cursor-pointer shrink-0"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <input
               type="text"
               value={inputText}
@@ -519,7 +621,7 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
             <button
               type="button"
               onClick={() => handleSend()}
-              disabled={loading || !inputText.trim()}
+              disabled={loading || (!inputText.trim() && !attachment)}
               className="py-2 px-3.5 rounded-lg theme-primary-btn font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" />

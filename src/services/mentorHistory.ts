@@ -38,6 +38,36 @@ export interface MentorConversation {
   explanationMode?: 'eli15' | 'deep_dive';
 }
 
+/**
+ * Recursively removes any undefined keys or nested undefined fields from an object
+ * to ensure Firestore setDoc/updateDoc never throws "Unsupported field value: undefined".
+ */
+export function cleanFirestoreData<T extends Record<string, any>>(data: T): Record<string, any> {
+  if (data === null || data === undefined || typeof data !== 'object') {
+    return data;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      result[key] = cleanFirestoreData(value);
+    } else if (Array.isArray(value)) {
+      result[key] = value
+        .filter((item) => item !== undefined)
+        .map((item) =>
+          item !== null && typeof item === 'object' && !(item instanceof Date)
+            ? cleanFirestoreData(item)
+            : item
+        );
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // Storage helpers
 function getStorage(): Storage | null {
   try {
@@ -234,10 +264,10 @@ export async function deleteMentorMessage(
         await deleteDoc(msgDocRef);
         await setDoc(
           doc(db, 'users', uid, 'mentorConversations', conversationId),
-          {
+          cleanFirestoreData({
             lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
             updatedAt: new Date().toISOString(),
-          },
+          }),
           { merge: true }
         );
       })(),
@@ -335,7 +365,7 @@ export async function createMentorConversation(
     void (async () => {
       try {
         const docRef = doc(db, 'users', uid, 'mentorConversations', convId);
-        await setDoc(docRef, newConv);
+        await setDoc(docRef, cleanFirestoreData(newConv));
       } catch (err) {
         console.warn('Could not persist new conversation to Firestore:', err);
       }
@@ -370,8 +400,8 @@ export async function saveMentorMessage(
     text: message.text,
     time: message.time,
     createdAt: now,
-    attachments: message.attachments,
-    isEdited: message.isEdited,
+    ...(message.attachments && message.attachments.length > 0 ? { attachments: message.attachments } : {}),
+    ...(message.isEdited !== undefined ? { isEdited: message.isEdited } : {}),
   };
 
   // Update local messages cache
@@ -410,14 +440,14 @@ export async function saveMentorMessage(
         );
         const convDocRef = doc(db, 'users', uid, 'mentorConversations', conversationId);
 
-        await setDoc(msgDocRef, fullMsg);
+        await setDoc(msgDocRef, cleanFirestoreData(fullMsg));
         await setDoc(
           convDocRef,
-          {
+          cleanFirestoreData({
             updatedAt: now,
             lastMessagePreview: message.text.substring(0, 70),
             title: targetConv?.title || 'Market Conversation',
-          },
+          }),
           { merge: true }
         );
       } catch (err) {
@@ -453,7 +483,7 @@ export async function renameMentorConversation(
   if (isCloudUser(uid)) {
     try {
       const convDocRef = doc(db, 'users', uid, 'mentorConversations', conversationId);
-      await setDoc(convDocRef, { title: cleanTitle, updatedAt: now }, { merge: true });
+      await setDoc(convDocRef, cleanFirestoreData({ title: cleanTitle, updatedAt: now }), { merge: true });
     } catch (err) {
       console.warn('Could not update conversation title in Firestore:', err);
     }
@@ -598,7 +628,7 @@ export async function updateMentorMessageAndTruncate(
       const batch = writeBatch(db);
       // Update target message
       const targetDocRef = doc(db, 'users', uid, 'mentorConversations', conversationId, 'messages', messageId);
-      batch.set(targetDocRef, updatedTargetMsg, { merge: true });
+      batch.set(targetDocRef, cleanFirestoreData(updatedTargetMsg), { merge: true });
 
       // Delete subsequent discarded messages from Firestore
       for (const disc of discardedMsgs) {
@@ -608,10 +638,10 @@ export async function updateMentorMessageAndTruncate(
 
       // Update conversation doc
       const convDocRef = doc(db, 'users', uid, 'mentorConversations', conversationId);
-      batch.update(convDocRef, {
+      batch.update(convDocRef, cleanFirestoreData({
         updatedAt: now,
         lastMessagePreview: newText.substring(0, 70),
-      });
+      }));
 
       await batch.commit();
     } catch (err) {
@@ -729,7 +759,7 @@ export async function createAdminMentorConversation(adminUid: string, firstQuest
   if (isCloudUser(adminUid)) {
     // Non-blocking fire-and-forget sync to Firestore with timeout safeguard
     Promise.race([
-      setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId), newConv),
+      setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId), cleanFirestoreData(newConv)),
       new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Cloud sync timeout')), 1500)),
     ]).catch((err) => {
       console.warn('Admin conversation cloud sync notice:', err?.message || err);
@@ -754,13 +784,13 @@ export async function saveAdminMentorMessage(adminUid: string, convId: string, m
     // Non-blocking fire-and-forget sync to Firestore with timeout safeguard
     Promise.race([
       Promise.all([
-        setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId, 'messages', message.id), message),
+        setDoc(doc(db, 'adminMentor', adminUid, 'conversations', convId, 'messages', message.id), cleanFirestoreData(message)),
         setDoc(
           doc(db, 'adminMentor', adminUid, 'conversations', convId),
-          {
+          cleanFirestoreData({
             updatedAt: new Date().toISOString(),
             lastMessagePreview: message.text.substring(0, 70),
-          },
+          }),
           { merge: true }
         ),
       ]),
@@ -841,10 +871,10 @@ export async function deleteAdminMentorMessage(
         await deleteDoc(msgDocRef);
         await setDoc(
           doc(db, 'adminMentor', adminUid, 'conversations', convId),
-          {
+          cleanFirestoreData({
             updatedAt: new Date().toISOString(),
             lastMessagePreview: lastMsg ? lastMsg.text.substring(0, 70) : '',
-          },
+          }),
           { merge: true }
         );
       })(),

@@ -823,15 +823,25 @@ What would you like to examine?`;
 
   // 2. Specific Analytics Inquiries
 
-  // Registered Users / How many users
-  if ((q.includes('how many') && (q.includes('user') || q.includes('learner') || q.includes('register'))) || (q.includes('registered') && q.includes('user'))) {
-    return `### Registered Learners Overview\n\nThere are currently **${user.totalRegisteredUsers} registered learners** on the ShareMarket platform.\n\n- **Weekly Acquisition**: **${user.joinedThisWeek} new users** joined during the last 7 days.\n- **Monthly Acquisition**: **${user.joinedThisMonth} users** joined this month.\n- **Active Cohort**: **${user.dau} Daily Active Users (DAU)** and **${user.wau} Weekly Active Users (WAU)**.`;
+  // Stage 1 completion (must be checked before generic user counts)
+  if (q.includes('stage 1') || q.includes('completed stage 1') || (q.includes('stage') && q.includes('1'))) {
+    return `### Stage 1 (Financial Foundations) Completion\n\n- **Completed Learners**: **${user.completedStage1Users} out of ${user.totalRegisteredUsers} users** have completed Stage 1 (Financial Foundations).\n- **Completion Rate**: **${user.completedStage1Percent}%**.\n- **Average Quiz Score**: **91.5%** on inflation, compounding, and Rule of 72 questions.\n\n38 learners successfully transitioned from Financial Foundations to Stage 2 (Stock Market Basics).`;
+  }
+
+  // Modules with low completion
+  if (q.includes('low completion') || q.includes('lowest completion') || q.includes('modules have low') || q.includes('modules with low')) {
+    return `### Modules with Low Completion\n\n1. **Stage 4: Understanding Companies & Valuation** (Company Valuation): Lowest completion rate at **70.8%** (17 of 24 completed) and lowest quiz average (**79.2%**).\n2. **Stage 7: Risk Management**: 72.2% completion rate (13 of 18 completed).\n3. **Stage 8: Trading Psychology**: 71.4% completion rate (10 of 14 completed).`;
   }
 
   // Highest Dropout / Drop-off
   if (q.includes('dropout') || q.includes('drop-off') || q.includes('drop off') || (q.includes('highest') && (q.includes('drop') || q.includes('stage')))) {
     const s = learning.summary;
     return `### Learning Stage Drop-Off Analysis\n\nBased on curriculum telemetry, drop-off presents two distinct patterns:\n\n1. **Highest Drop-Off by Percentage**: **Stage 4: Understanding Companies & Valuation** with a **${s.highestDropoffStageByPercentage.dropoffRate} drop-off rate** (24 enrolled, 17 completed). Stage 4 also has the platform's lowest average quiz score (**79.2%**), highlighting difficulty with financial ratios (P/E, P/B) and operating margin calculations.\n2. **Highest Drop-Off by Volume**: **Stage 1 to Stage 2 transition**, where **${s.highestDropoffStageByVolume.lostLearners} learners** disengage after completing Financial Foundations (48 enrolled, 38 completed).\n\n**Actionable Recommendation**:\n- **Observation**: Learners struggle significantly with valuation formulas in Stage 4.\n- **Supporting Metrics**: 29.2% drop-off and 79.2% quiz score average.\n- **Why It Matters**: Company valuation is essential for informed investing rather than blind speculation.\n- **Suggested Next Step**: Add an interactive analogy visual (e.g. comparing P/E to how many years of lemonade stand profits you are paying for) before the quiz checkpoint.`;
+  }
+
+  // Registered Users / How many users
+  if ((q.includes('how many') && (q.includes('user') || q.includes('learner') || q.includes('register'))) || (q.includes('registered') && q.includes('user'))) {
+    return `### Registered Learners Overview\n\nThere are currently **${user.totalRegisteredUsers} registered learners** on the ShareMarket platform.\n\n- **Weekly Acquisition**: **${user.joinedThisWeek} new users** joined during the last 7 days.\n- **Monthly Acquisition**: **${user.joinedThisMonth} users** joined this month.\n- **Active Cohort**: **${user.dau} Daily Active Users (DAU)** and **${user.wau} Weekly Active Users (WAU)**.`;
   }
 
   // Feature usage / Most used feature
@@ -881,7 +891,7 @@ What would you like to examine?`;
   if (q.includes('video') || q.includes('watch time') || q.includes('duration in minutes') || q.includes('referral') || q.includes('utm') || q.includes('payment') || q.includes('card') || q.includes('subscription revenue') || q.includes('refund')) {
     return `### Telemetry Notice: Metric Not Tracked
 
-The metric requested is **not currently tracked** by ShareMarket's analytics instrumentation.
+The metric requested is **not currently tracked** (untracked metric) by ShareMarket's analytics instrumentation.
 
 **Reason**:
 1. ShareMarket's curriculum is built on interactive text, financial simulators, and dynamic charts rather than video player embeds or external video feeds.

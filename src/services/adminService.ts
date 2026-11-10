@@ -382,6 +382,13 @@ export interface AdminIntelligenceResult {
   latencyMs?: number;
 }
 
+export interface AdminAttachment {
+  name?: string;
+  type: string;
+  size: number;
+  dataUrl?: string;
+}
+
 /**
  * Ask Admin Intelligence AI Copilot
  */
@@ -389,11 +396,20 @@ export async function askAdminIntelligence(
   adminEmail: string,
   question: string,
   history: Array<{ sender: string; text: string }> = [],
-  timeRange: string = '30d'
+  timeRange: string = '30d',
+  attachments?: AdminAttachment[]
 ): Promise<AdminIntelligenceResult> {
   const headers = await getAdminHeaders(adminEmail);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  const payloadAttachments = attachments && attachments.length > 0
+    ? attachments.map((a) => ({
+        name: a.name,
+        mimeType: a.type,
+        base64: a.dataUrl || '',
+      }))
+    : undefined;
 
   try {
     const res = await fetch('/api/admin/mentor', {
@@ -402,7 +418,7 @@ export async function askAdminIntelligence(
         'Content-Type': 'application/json',
         ...headers,
       },
-      body: JSON.stringify({ question, history, timeRange }),
+      body: JSON.stringify({ question, history, timeRange, attachments: payloadAttachments }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);

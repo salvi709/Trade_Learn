@@ -13,12 +13,16 @@ import {
   Layers,
   HelpCircle,
   ExternalLink,
+  Paperclip,
+  Image as ImageIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { MentorMessage, MentorConversation } from '../../services/mentorHistory';
 import {
   askAdminIntelligence,
   triggerTactileHaptic,
   AdminAnalyticsData,
+  AdminAttachment,
 } from '../../services/adminService';
 import {
   fetchAdminMentorConversations,
@@ -54,6 +58,33 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
   const [currentModel, setCurrentModel] = useState<string>('gemini-3.8-flash');
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<AdminAttachment | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachmentError(null);
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAttachmentError('File size exceeds 5MB limit. Please upload an image smaller than 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        name: file.name,
+        type: file.type || 'image/png',
+        size: file.size,
+        dataUrl: reader.result as string,
+      });
+      triggerTactileHaptic(6);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const shouldReduceMotion = useReducedMotion();
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -123,18 +154,22 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
 
   const handleSendMessage = async (textToSend: string) => {
     const trimmed = textToSend.trim();
-    if (!trimmed || loading) return;
+    if ((!trimmed && !attachment) || loading) return;
 
+    const currentAttachment = attachment;
     triggerTactileHaptic(8);
     setInputText('');
+    setAttachment(null);
+    setAttachmentError(null);
     setLastError(null);
     setLastFailedPrompt(null);
 
     const adminId = getAdminIdentifier();
     let convId = activeConvId;
+    const initialTitle = trimmed || (currentAttachment ? `Screenshot: ${currentAttachment.name}` : 'Admin Analysis');
 
     if (!convId) {
-      const newConv = await createAdminMentorConversation(adminId, trimmed);
+      const newConv = await createAdminMentorConversation(adminId, initialTitle);
       convId = newConv.id;
       setActiveConvId(convId);
     }
@@ -142,9 +177,21 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
     const userMsg: MentorMessage = {
       id: 'admin_usr_' + Date.now(),
       sender: 'user',
-      text: trimmed,
+      text: trimmed || (currentAttachment ? `[Uploaded Image: ${currentAttachment.name}]` : ''),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
+      ...(currentAttachment
+        ? {
+            attachments: [
+              {
+                name: currentAttachment.name || 'screenshot.png',
+                type: currentAttachment.type,
+                size: currentAttachment.size,
+                dataUrl: currentAttachment.dataUrl,
+              },
+            ],
+          }
+        : {}),
     };
 
     setMessages((prev) => [...prev.filter((m) => m.id !== 'floating_admin_welcome'), userMsg]);
@@ -160,11 +207,14 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
         .slice(-6)
         .map((m) => ({ sender: m.sender, text: m.text }));
 
+      const queryForAI = trimmed || 'Please analyze this uploaded screenshot and explain the metrics or elements visible.';
+
       const result = await askAdminIntelligence(
         adminEmail,
-        trimmed,
-        [...recentHistory, { sender: 'user', text: trimmed }],
-        analytics?.timeRange || '30d'
+        queryForAI,
+        [...recentHistory, { sender: 'user', text: queryForAI }],
+        analytics?.timeRange || '30d',
+        currentAttachment ? [currentAttachment] : undefined
       );
 
       setCurrentModel(result.modelUsed);
@@ -349,6 +399,22 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
                         })}
                       </div>
 
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 my-1.5">
+                          {msg.attachments.map((att, i) => (
+                            <div key={i} className="rounded-lg overflow-hidden border border-white/20 bg-black/30 max-w-[200px]">
+                              {att.dataUrl && (
+                                <img src={att.dataUrl} alt={att.name || 'Screenshot'} className="max-h-32 w-auto object-contain bg-black/40" />
+                              )}
+                              <div className="p-1 text-[9px] truncate px-1 opacity-80 flex items-center gap-1">
+                                <ImageIcon className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                                <span className="truncate">{att.name || 'Screenshot'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-700/30">
                         <span
                           className={`text-[9px] font-mono ${
@@ -428,24 +494,63 @@ export const FloatingAdminAIMentor: React.FC<FloatingAdminAIMentorProps> = ({
                 e.preventDefault();
                 handleSendMessage(inputText);
               }}
-              className="p-3 theme-card border-t theme-border flex items-center gap-2"
+              className="p-3 theme-card border-t theme-border space-y-2"
             >
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Ask about drop-off rates, quizzes, retention..."
-                className="flex-1 theme-surface-subtle border theme-border rounded-xl px-3 py-2 text-xs theme-main-text focus:outline-none focus:border-emerald-500 placeholder:theme-muted-text"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim() || loading}
-                aria-label="Send analytical question"
-                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-sm transition-all cursor-pointer shrink-0"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
+              {attachment && (
+                <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-400">
+                  <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate flex-1 font-medium">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="p-0.5 hover:bg-emerald-500/20 rounded-md transition-colors cursor-pointer text-emerald-300"
+                    title="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              {attachmentError && (
+                <div className="text-[10px] text-red-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  <span>{attachmentError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload ShareMarket dashboard or analytics screenshot"
+                  aria-label="Upload screenshot"
+                  className="p-2 rounded-xl theme-surface-subtle hover:theme-card border theme-border theme-muted-text hover:theme-main-text transition-colors cursor-pointer shrink-0"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="Ask about drop-off rates, quizzes, retention..."
+                  className="flex-1 theme-surface-subtle border theme-border rounded-xl px-3 py-2 text-xs theme-main-text focus:outline-none focus:border-emerald-500 placeholder:theme-muted-text"
+                />
+                <button
+                  type="submit"
+                  disabled={(!inputText.trim() && !attachment) || loading}
+                  aria-label="Send analytical question"
+                  className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-sm transition-all cursor-pointer shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </form>
           </motion.div>
         )}
