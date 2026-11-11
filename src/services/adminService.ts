@@ -65,6 +65,26 @@ export interface AdminAnalyticsData {
     multimodalCount: number;
     topicCounts: Record<string, number>;
     recentMetrics: any[];
+    // Zero-Cost Free-Tier Architecture Telemetry
+    totalAiRequests?: number;
+    learningAiRequests?: number;
+    adminAiRequests?: number;
+    successfulRequests?: number;
+    failedRequests?: number;
+    quotaExhaustedRequests?: number;
+    imageAnalysisRequests?: number;
+    avgResponseTimeMs?: number;
+    activeModel?: string;
+    supportedModels?: string[];
+    isQuotaExhausted?: boolean;
+    quotaResetEta?: string | null;
+    budgetStatus?: {
+      spendingUSD: number;
+      spendingINR: number;
+      billingMode: string;
+      note: string;
+    };
+    recentLogs?: any[];
   };
   moduleAnalytics: Array<{
     id: string;

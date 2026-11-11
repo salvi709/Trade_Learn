@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { isGeminiBillingDisabled, markGeminiBillingDisabled } from './serverMentorEngine';
+import { aiQuotaTracker, getActiveFreeModel, validateZeroCostModel } from './aiQuotaTracker';
 
 export const ADMIN_OWNER_EMAIL = 'salvisarthak2007@gmail.com';
 export const ADMIN_AUTHORIZED_EMAILS: string[] = [
@@ -485,21 +486,42 @@ export function generatePlatformAnalytics(timeRange: '7d' | '30d' | '90d' | 'all
       activeStreaks: engagement.activeStreaksCount,
       systemUptimePercent: 99.98,
     },
-    aiMentorAnalytics: {
-      totalQueries,
-      successfulQueries,
-      failedQueries,
-      successRate,
-      totalInputTokens,
-      totalOutputTokens,
-      estimatedCostUSD: Number(estimatedCostUSD.toFixed(5)),
-      estimatedCostINR: Number(estimatedCostINR.toFixed(2)),
-      eli15Count: relevantMetrics.filter((m) => m.mode === 'eli15').length || 3,
-      deepDiveCount: relevantMetrics.filter((m) => m.mode === 'deep_dive').length || 1,
-      multimodalCount: relevantMetrics.filter((m) => m.hasAttachment).length || 1,
-      topicCounts,
-      recentMetrics: relevantMetrics.slice(0, 15),
-    },
+    aiMentorAnalytics: (() => {
+      const telemetry = aiQuotaTracker.getTelemetry();
+      return {
+        totalQueries: telemetry.totalAiRequests,
+        successfulQueries: telemetry.successfulRequests,
+        failedQueries: telemetry.failedRequests,
+        successRate: telemetry.totalAiRequests > 0
+          ? Math.round((telemetry.successfulRequests / telemetry.totalAiRequests) * 100)
+          : 100,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        estimatedCostUSD: 0.00,
+        estimatedCostINR: 0.00,
+        eli15Count: relevantMetrics.filter((m) => m.mode === 'eli15').length || 3,
+        deepDiveCount: relevantMetrics.filter((m) => m.mode === 'deep_dive').length || 1,
+        multimodalCount: telemetry.imageAnalysisRequests,
+        topicCounts,
+        recentMetrics: relevantMetrics.slice(0, 15),
+
+        // Specific usage tracking fields for ₹0 Zero-Cost Infrastructure
+        totalAiRequests: telemetry.totalAiRequests,
+        learningAiRequests: telemetry.learningAiRequests,
+        adminAiRequests: telemetry.adminAiRequests,
+        successfulRequests: telemetry.successfulRequests,
+        failedRequests: telemetry.failedRequests,
+        quotaExhaustedRequests: telemetry.quotaExhaustedRequests,
+        imageAnalysisRequests: telemetry.imageAnalysisRequests,
+        avgResponseTimeMs: telemetry.avgResponseTimeMs,
+        activeModel: telemetry.activeModel,
+        supportedModels: telemetry.supportedModels,
+        isQuotaExhausted: telemetry.isQuotaExhausted,
+        quotaResetEta: telemetry.quotaResetEta,
+        budgetStatus: telemetry.budgetStatus,
+        recentLogs: telemetry.recentLogs,
+      };
+    })(),
     moduleAnalytics: learning.stages.map((s) => ({
       id: s.id,
       title: `Stage ${s.stageNumber}: ${s.title}`,
@@ -687,9 +709,20 @@ Stage 8: Trading Psychology & Emotional Traps
 Stage 9: Paper Trading & Market Expectations
 Stage 10: Capstone Mastery Assessment`;
 
-  if (!ai || isGeminiBillingDisabled()) {
-    // Grounded deterministic fallback if API key is temporarily unavailable
+  if (!ai || isGeminiBillingDisabled() || aiQuotaTracker.isQuotaExhausted()) {
+    // Grounded deterministic fallback if API key or daily free quota is unavailable
     const answer = generateDeterministicAdminAnswer(cleanQ, relevantContext, attachments);
+    aiQuotaTracker.recordRequest({
+      source: 'admin',
+      success: true,
+      isQuotaExhausted: aiQuotaTracker.isQuotaExhausted(),
+      hasAttachment: Array.isArray(attachments) && attachments.length > 0,
+      topic: 'Admin Platform Telemetry',
+      modelUsed: 'grounded-admin-engine',
+      latencyMs: Date.now() - startTime,
+      userExcerpt: cleanQ,
+    });
+
     return {
       answer,
       modelUsed: 'grounded-admin-engine',
@@ -697,20 +730,21 @@ Stage 10: Capstone Mastery Assessment`;
     };
   }
 
-  // Construct conversation contents
+  // Construct conversation contents (compact last 4 turns)
   let historyTranscript = '';
   if (Array.isArray(history) && history.length > 0) {
-    const recent = history.slice(-6);
+    const recent = history.slice(-4);
     historyTranscript = recent
-      .map((m) => `${m.sender === 'user' ? 'Administrator' : 'Admin Intelligence'}: ${m.text}`)
-      .join('\n\n');
+      .map((m) => `${m.sender === 'user' ? 'Administrator' : 'Admin Intelligence'}: ${m.text.slice(0, 180)}`)
+      .join('\n');
   }
 
   const promptText = `${historyTranscript ? `Recent Conversation History:\n${historyTranscript}\n\n` : ''}Administrator's Question: ${cleanQ}`;
 
   const promptParts: any[] = [{ text: promptText }];
 
-  if (Array.isArray(attachments) && attachments.length > 0) {
+  const hasAttachment = Array.isArray(attachments) && attachments.length > 0;
+  if (hasAttachment) {
     for (const att of attachments) {
       if (!att || !att.mimeType || !att.base64) continue;
       const cleanBase64 = att.base64.replace(/^data:[^;]+;base64,/, '');
@@ -726,39 +760,37 @@ Stage 10: Capstone Mastery Assessment`;
   }
 
   let answerText = '';
-  let modelUsed = 'gemini-3.8-flash';
+  const activeModel = validateZeroCostModel(getActiveFreeModel());
+  let modelUsed = activeModel;
 
-  for (const m of ['gemini-3.8-flash', 'gemini-3.1-flash-lite']) {
-    try {
-      const response = await ai.models.generateContent({
-        model: m,
-        contents: [
-          {
-            role: 'user',
-            parts: promptParts,
-          },
-        ],
-        config: {
-          systemInstruction,
+  try {
+    const response = await ai.models.generateContent({
+      model: activeModel,
+      contents: [
+        {
+          role: 'user',
+          parts: promptParts,
         },
-      });
+      ],
+      config: {
+        systemInstruction,
+      },
+    });
 
-      if (response && response.text) {
-        answerText = response.text.trim();
-        modelUsed = m;
-        break;
-      }
-    } catch (err: any) {
-      const isBillingOr403 =
-        err?.status === 403 ||
-        (typeof err?.message === 'string' &&
-          (err.message.includes('403') ||
-            err.message.includes('billing') ||
-            err.message.includes('PERMISSION_DENIED')));
-      if (isBillingOr403) {
-        markGeminiBillingDisabled();
-        break;
-      }
+    if (response && response.text) {
+      answerText = response.text.trim();
+    }
+  } catch (err: any) {
+    const errMsg = String(err?.message || '');
+    const isQuotaError =
+      err?.status === 429 ||
+      errMsg.includes('429') ||
+      errMsg.includes('RESOURCE_EXHAUSTED') ||
+      errMsg.includes('quota') ||
+      errMsg.includes('free_tier_requests');
+
+    if (isQuotaError) {
+      aiQuotaTracker.recordProviderQuotaError(errMsg);
     }
   }
 
@@ -766,6 +798,17 @@ Stage 10: Capstone Mastery Assessment`;
     answerText = generateDeterministicAdminAnswer(cleanQ, relevantContext, attachments);
     modelUsed = 'grounded-admin-engine';
   }
+
+  aiQuotaTracker.recordRequest({
+    source: 'admin',
+    success: true,
+    isQuotaExhausted: modelUsed === 'grounded-admin-engine' && aiQuotaTracker.isQuotaExhausted(),
+    hasAttachment,
+    topic: 'Admin Intelligence Consultation',
+    modelUsed,
+    latencyMs: Date.now() - startTime,
+    userExcerpt: cleanQ,
+  });
 
   return {
     answer: answerText,

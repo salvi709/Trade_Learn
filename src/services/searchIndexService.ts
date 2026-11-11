@@ -138,6 +138,17 @@ export function getSearchIndex(currentUserEmail?: string | null): SearchItem[] {
       tabId: 'settings',
       keywords: ['settings', 'preferences', 'profile', 'avatar', 'theme', 'dark mode', 'light mode', 'sound', 'reset'],
       iconName: 'Settings',
+    },
+    {
+      id: 'tab_feedback',
+      title: 'Send Feedback & Suggestions',
+      description: 'Submit product ideas, feature requests, bug reports, and experience reviews to improve ShareMarket.',
+      category: 'actions',
+      categoryLabel: 'Feedback',
+      path: 'Other → Send Feedback',
+      actionId: 'open_feedback',
+      keywords: ['feedback', 'suggest', 'suggestion', 'bug', 'report', 'issue', 'review', 'rating', 'feature request', 'idea', 'contact'],
+      iconName: 'MessageSquare',
     }
   );
 

@@ -28,7 +28,8 @@ import {
   RotateCcw,
   ShieldAlert,
   PanelLeftOpen,
-  PanelLeftClose
+  PanelLeftClose,
+  MessageSquareHeart
 } from 'lucide-react';
 import { UserProfile, UserProgress, PaperPortfolio } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
@@ -186,6 +187,7 @@ interface NavigationLayoutProps {
   onRestartFromBeginning?: () => void;
   forceMobileMenuOpen?: boolean;
   onOpenSearch?: () => void;
+  onOpenFeedback?: () => void;
   children: React.ReactNode;
 }
 
@@ -201,6 +203,7 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
   onRestartFromBeginning,
   forceMobileMenuOpen,
   onOpenSearch,
+  onOpenFeedback,
   children,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -276,6 +279,7 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
       items: [
         { id: 'glossary', label: 'A-Z Glossary', icon: BookA },
         { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'feedback', label: 'Send Feedback', icon: MessageSquareHeart },
       ]
     },
     {
@@ -291,7 +295,15 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
   ];
 
   const handleNavClick = (id: string) => {
-    onSelectTab(id);
+    if (id === 'feedback') {
+      if (onOpenFeedback) {
+        onOpenFeedback();
+      } else {
+        onSelectTab('feedback');
+      }
+    } else {
+      onSelectTab(id);
+    }
     setMobileMenuOpen(false);
   };
 

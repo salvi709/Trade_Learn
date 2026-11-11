@@ -29,6 +29,7 @@ import {
   triggerTactileHaptic,
   updateMentorMessageAndTruncate,
 } from '../../services/mentorHistory';
+import { MentorFeedbackInline } from '../feedback/MentorFeedbackInline';
 
 export type { MentorMessage, MentorConversation, MentorAttachment };
 
@@ -355,6 +356,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,
           question: textToSend,
           history: recentHistory,
           mode: explanationMode,
@@ -383,12 +385,28 @@ export const MarketMentor: React.FC<MentorProps> = ({
     } catch (err: any) {
       console.warn('Market Mentor inquiry failed:', err);
       setLastFailedQuestion(textToSend);
+      const isQuotaExceeded =
+        err?.message?.includes('DAILY_QUOTA_EXHAUSTED') ||
+        err?.message?.includes('RESOURCE_EXHAUSTED') ||
+        err?.message?.includes('429') ||
+        err?.message?.includes('quota');
+      const isUserLimit =
+        err?.message?.includes('USER_LIMIT_REACHED') ||
+        err?.message?.includes('Fair-use daily limit');
+
+      let errorText = `⚠️ **Could not reach Market Mentor**: ${err?.message || 'The AI service is experiencing high demand.'}\n\nPlease click **Retry** below or re-submit your question.`;
+      if (isQuotaExceeded) {
+        errorText = `⚠️ **Daily Free Quota Exhausted (Strict ₹0 Budget)**\n\nShareMarket operates with an absolute zero-cost policy using Google AI Studio's officially provided free tier (20 requests/day). The shared project quota has been reached for today and will automatically reset within 24 hours.\n\n🔒 **Your chat history is saved.** No payment or paid model is ever enabled. Please check back after quota refresh!`;
+      } else if (isUserLimit) {
+        errorText = `⚠️ **Fair-Use Limit Reached (Strict ₹0 Budget)**\n\nTo ensure all learners have free access under our ₹0 spending policy, each account has a fair-use limit of 5 AI inquiries per day. Your quota will renew tomorrow!`;
+      }
+
       setLocalMessages((prev) => [
         ...prev,
         {
           id: 'mentor_error_' + Date.now(),
           sender: 'mentor',
-          text: `⚠️ **Could not reach Market Mentor**: ${err?.message || 'The AI service is experiencing high demand.'}\n\nPlease click **Retry** below or re-submit your question.`,
+          text: errorText,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           createdAt: new Date().toISOString(),
         },
@@ -813,7 +831,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                   </div>
                 </div>
               )}
-              {messages.map((msg) => {
+              {messages.map((msg, idx) => {
               const isUser = msg.sender === 'user';
               const isCopied = copiedMessageId === msg.id;
               const isEditingThis = editingMessageId === msg.id;
@@ -966,6 +984,16 @@ export const MarketMentor: React.FC<MentorProps> = ({
                             </button>
                           )}
 
+                          {/* AI Mentor Inline Evaluation (Thumbs Up / Down) */}
+                          {!isUser && msg.id !== 'welcome' && !msg.id.startsWith('mentor_error_') && (
+                            <MentorFeedbackInline
+                              messageId={msg.id}
+                              conversationId={activeConversationId}
+                              questionExcerpt={idx > 0 ? messages[idx - 1]?.text : undefined}
+                              userId={userId}
+                            />
+                          )}
+
                           {/* Delete unwanted individual message button */}
                           {msg.id !== 'welcome' && (
                             <button
@@ -1012,7 +1040,11 @@ export const MarketMentor: React.FC<MentorProps> = ({
             <div className="p-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between gap-3 text-xs text-rose-300">
               <span className="flex items-center gap-1.5 font-medium">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Could not reach Market Mentor. Click retry to answer properly.</span>
+                <span>
+                  {messages.some((m) => m.text?.includes('Zero-Cost') || m.text?.includes('₹0 Budget'))
+                    ? 'Free daily quota limit reached. Cooldown active.'
+                    : 'Could not reach Market Mentor. Click retry to answer.'}
+                </span>
               </span>
               <button
                 type="button"
@@ -1020,7 +1052,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer active:scale-95 shadow-sm transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Retry Now</span>
+                <span>Retry</span>
               </button>
             </div>
           )}

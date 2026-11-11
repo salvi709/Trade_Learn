@@ -106,5 +106,25 @@ service cloud.firestore {
       // Deletion: only the current owner can release this username mapping
       allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
     }
+
+    // Feedback Collection (/feedback/{feedbackId})
+    match /feedback/{feedbackId} {
+      // Admins can read all feedback; submitters can read their own submissions
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+
+      // Anyone (authenticated or guest learner) can submit feedback with strict payload constraints
+      allow create: if (
+        request.resource.data.type in ['experience', 'learning', 'product', 'mentor'] &&
+        request.resource.data.status == 'new' &&
+        // If authenticated and not anonymous, the userId must match request.auth.uid
+        (!request.resource.data.isAnonymous && isAuthenticated() ? request.resource.data.userId == request.auth.uid : true)
+      );
+
+      // Only administrators can update workflow status and admin notes
+      allow update: if isAdmin();
+
+      // Only administrators can delete feedback submissions
+      allow delete: if isAdmin();
+    }
   }
 }

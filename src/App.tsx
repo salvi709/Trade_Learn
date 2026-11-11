@@ -79,6 +79,14 @@ import { StartupBrandReveal } from './components/branding/StartupBrandReveal';
 import { GlobalSearchModal } from './components/search/GlobalSearchModal';
 import { normalizeStreakOnLoad, recordLearningActivity, getLocalDateString } from './utils/streak';
 import { AlertCircle } from 'lucide-react';
+import { ExperienceFeedbackModal } from './components/feedback/ExperienceFeedbackModal';
+import { LearningFeedbackModal } from './components/feedback/LearningFeedbackModal';
+import { DetailedFeedbackModal } from './components/feedback/DetailedFeedbackModal';
+import { 
+  canShowExperienceFeedback, 
+  canShowLearningFeedback, 
+  recordFeedbackPromptShown 
+} from './services/feedbackService';
 
 function AppContent() {
   const { theme, setTheme } = useTheme();
@@ -101,6 +109,17 @@ function AppContent() {
   const [showGuidedTour, setShowGuidedTour] = useState<boolean>(false);
   const [forceMobileSidebarOpen, setForceMobileSidebarOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  
+  // Feedback System State
+  const [showDetailedFeedback, setShowDetailedFeedback] = useState<boolean>(false);
+  const [showExperienceFeedback, setShowExperienceFeedback] = useState<boolean>(false);
+  const [learningFeedbackTarget, setLearningFeedbackTarget] = useState<{
+    lessonId: string;
+    lessonTitle: string;
+    stageId?: string;
+    stageTitle?: string;
+  } | null>(null);
+
   const [activeTab, setActiveTab] = useState<string>(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -591,7 +610,53 @@ function AppContent() {
     if (newlyUnlocked) {
       setCelebrationModule(newlyUnlocked);
     }
+
+    // Smart Timing: Check for milestone learning comprehension feedback
+    const activeMod = CURRICULUM_MODULES.find((m) => m.lessons.some((l) => l.id === lessonId));
+    const activeLes = activeMod?.lessons.find((l) => l.id === lessonId);
+    if (activeLes && canShowLearningFeedback(lessonId, updatedCompleted.length, newlyCompletedModules.length > 0)) {
+      setTimeout(() => {
+        recordFeedbackPromptShown('learning', lessonId);
+        setLearningFeedbackTarget({
+          lessonId,
+          lessonTitle: activeLes.title,
+          stageId: activeMod?.id,
+          stageTitle: activeMod?.title,
+        });
+      }, 1800);
+    }
   };
+
+  // Smart Timing: Check for periodic overall experience feedback (7-14 days cooldown, never on turn 0)
+  useEffect(() => {
+    if (
+      showTour ||
+      showGuidedTour ||
+      activeLesson ||
+      learningFeedbackTarget ||
+      showDetailedFeedback ||
+      showExperienceFeedback
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (canShowExperienceFeedback(progress.completedLessons.length)) {
+        recordFeedbackPromptShown('experience');
+        setShowExperienceFeedback(true);
+      }
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [
+    progress.completedLessons.length,
+    showTour,
+    showGuidedTour,
+    activeLesson,
+    learningFeedbackTarget,
+    showDetailedFeedback,
+    showExperienceFeedback,
+  ]);
 
   // Handler for paper trade execution
   const handleExecuteTrade = (order: {
@@ -832,6 +897,8 @@ function AppContent() {
       }
     } else if (actionId === 'open_mentor') {
       handleOpenMentor();
+    } else if (actionId === 'open_feedback') {
+      setShowDetailedFeedback(true);
     }
   };
 
@@ -1001,6 +1068,7 @@ function AppContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: trimmed,
+          userId: effectiveUid,
           history: recentHistory,
           mode: mentorExplanationMode,
           currentModule: currentModuleObj.title,
@@ -1063,11 +1131,24 @@ function AppContent() {
       }
     } catch (err: any) {
       console.warn('Market Mentor inquiry failed:', err);
+      const errMsg = err?.message || 'The AI service is experiencing high demand.';
+      const isQuota = errMsg.includes('DAILY_QUOTA_EXHAUSTED') || errMsg.includes('limit: 20') || errMsg.includes('quota exceeded');
+      const isUserLimit = errMsg.includes('USER_LIMIT_REACHED');
+
+      let userFacingText = '';
+      if (isQuota) {
+        userFacingText = `⚠️ **Daily Free-Tier AI Quota Reached (20 requests/day)**\n\nShareMarket operates on a strict ₹0 budget using Google's official free-tier AI access. The shared daily limit has been reached.\n\n🕒 **Quota Reset**: The free tier automatically resets tomorrow (UTC). Your chat history, progress, and paper portfolio are completely safe!\n\nFeel free to explore our learning modules, review previous lesson quizzes, or practice in Paper Trading while the daily quota refreshes.`;
+      } else if (isUserLimit) {
+        userFacingText = `⚠️ **Daily Fair-Share Limit Reached**\n\nYou've used your daily allocation (5 questions/day) on the free tier. This ensures all learners can ask Market Mentor questions without paid fees.\n\nYour chat history is saved. Please review your previous notes or practice in Paper Trading and return tomorrow!`;
+      } else {
+        userFacingText = `⚠️ **Could not reach Market Mentor**: ${errMsg}\n\nPlease click **Retry** below or re-submit your question.`;
+      }
+
       // Display transparent, actionable error notice instead of silent canned text
       const errorNoticeMsg: MentorMessage = {
         id: 'mentor_error_' + Date.now(),
         sender: 'mentor',
-        text: `⚠️ **Could not reach Market Mentor**: ${err?.message || 'The AI service is experiencing high demand.'}\n\nPlease click **Retry** below or re-submit your question.`,
+        text: userFacingText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         createdAt: new Date().toISOString(),
       };
@@ -1410,6 +1491,7 @@ function AppContent() {
         onRestartFromBeginning={handleRestartFromBeginning}
         forceMobileMenuOpen={forceMobileSidebarOpen}
         onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenFeedback={() => setShowDetailedFeedback(true)}
       >
         {/* 1. Dashboard Tab */}
         {activeTab === 'dashboard' && (
@@ -1671,6 +1753,39 @@ function AppContent() {
         onSelectLessonById={handleSelectLessonById}
         onTriggerAction={handleTriggerSearchAction}
       />
+
+      {/* Permanent Accessible Detailed Product Feedback Modal */}
+      <DetailedFeedbackModal
+        isOpen={showDetailedFeedback}
+        onClose={() => setShowDetailedFeedback(false)}
+        userId={effectiveUid}
+        userName={profile.displayName}
+        userEmail={profile.email}
+      />
+
+      {/* Smart Timing Quick Experience Feedback Modal */}
+      <ExperienceFeedbackModal
+        isOpen={showExperienceFeedback}
+        onClose={() => setShowExperienceFeedback(false)}
+        userId={effectiveUid}
+        userName={profile.displayName}
+        userEmail={profile.email}
+      />
+
+      {/* Milestone Learning Comprehension Feedback Modal */}
+      {learningFeedbackTarget && (
+        <LearningFeedbackModal
+          isOpen={!!learningFeedbackTarget}
+          onClose={() => setLearningFeedbackTarget(null)}
+          lessonId={learningFeedbackTarget.lessonId}
+          lessonTitle={learningFeedbackTarget.lessonTitle}
+          stageId={learningFeedbackTarget.stageId}
+          stageTitle={learningFeedbackTarget.stageTitle}
+          userId={effectiveUid}
+          userName={profile.displayName}
+          userEmail={profile.email}
+        />
+      )}
     </>
   );
 }

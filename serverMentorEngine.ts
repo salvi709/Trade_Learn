@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { CURRICULUM_MODULES } from './src/data/curriculumData';
 import { GLOSSARY_TERMS } from './src/data/marketData';
+import { aiQuotaTracker, getActiveFreeModel, validateZeroCostModel } from './aiQuotaTracker';
 
 export interface LearnerContext {
   displayName?: string;
@@ -27,6 +28,7 @@ export interface MentorAttachmentItem {
 
 export interface MentorGenerateRequest {
   question: string;
+  userId?: string;
   history?: MentorHistoryItem[];
   mode?: 'eli15' | 'deep_dive';
   learnerContext?: LearnerContext;
@@ -406,6 +408,7 @@ export async function generateMentorResponse(
   const startTime = Date.now();
   const {
     question,
+    userId,
     history = [],
     mode = 'eli15',
     learnerContext,
@@ -418,11 +421,22 @@ export async function generateMentorResponse(
   }
 
   const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+  const userKey = userId || learnerContext?.displayName || 'learner_session';
 
-  // 1. Check for immediate casual intent (if no images/attachments uploaded)
+  // 1. Check for immediate casual intent (does not consume API quota)
   if (!hasAttachments) {
     const casualMatch = checkCasualIntent(trimmedQuestion);
     if (casualMatch.isCasual && casualMatch.response) {
+      aiQuotaTracker.recordRequest({
+        source: 'learning',
+        success: true,
+        isQuotaExhausted: false,
+        topic: 'Conversational Greeting',
+        modelUsed: 'sharemarket-conversational-engine',
+        latencyMs: Date.now() - startTime,
+        userExcerpt: trimmedQuestion,
+      });
+
       return {
         answer: casualMatch.response,
         modelUsed: 'sharemarket-conversational-engine',
@@ -433,26 +447,62 @@ export async function generateMentorResponse(
     }
   }
 
-  // 2. High-precision retrieval: only retrieve chunks if query matches with high confidence
+  // 2. Strict Zero-Cost Circuit Breaker: check if provider daily free-tier quota is already exhausted
+  if (aiQuotaTracker.isQuotaExhausted()) {
+    const resetEta = aiQuotaTracker.getQuotaResetEta() || 'Tomorrow (UTC reset)';
+    aiQuotaTracker.recordRequest({
+      source: 'learning',
+      success: false,
+      isQuotaExhausted: true,
+      topic: 'Daily Quota Cooldown',
+      modelUsed: getActiveFreeModel(),
+      latencyMs: Date.now() - startTime,
+      userExcerpt: trimmedQuestion,
+    });
+
+    throw new Error(
+      `DAILY_QUOTA_EXHAUSTED: ShareMarket operates on an absolute ₹0 API budget using Google's free-tier access. The daily free-tier limit (20 requests/day) has been reached. Please retry in ${resetEta}. Your complete chat history, quiz progress, and paper trading portfolio are safely preserved.`
+    );
+  }
+
+  // 3. Per-User Fair Usage Check (Requirement 10: protect shared 20 RPD free tier)
+  const userRate = aiQuotaTracker.checkUserRateLimit(userKey, false);
+  if (!userRate.allowed) {
+    aiQuotaTracker.recordRequest({
+      source: 'learning',
+      success: false,
+      isQuotaExhausted: false,
+      topic: 'Per-User Fair Limit',
+      modelUsed: getActiveFreeModel(),
+      latencyMs: Date.now() - startTime,
+      userExcerpt: trimmedQuestion,
+    });
+
+    throw new Error(
+      `USER_LIMIT_REACHED: You have used your daily fair-share allocation (${aiQuotaTracker.perUserDailyLimit} Market Mentor questions/day) on the free tier. This ensures all learners can ask questions without paid fees. Please continue practicing in Paper Trading or review previous lessons, and return tomorrow!`
+    );
+  }
+
+  // 4. High-precision retrieval: only retrieve chunks if query matches with high confidence
   const { chunks, lessonRefs, glossaryRefs } = retrieveRelevantKnowledge(trimmedQuestion, 2);
   const groundingText = chunks.length > 0 ? chunks.map((c) => c.content).join('\n\n') : '';
 
-  // 3. Build system instructions
+  // 5. Build system instructions
   const systemInstruction = buildSystemInstruction(
     mode,
     learnerContext,
     groundingText
   );
 
-  // 4. Format recent conversation history (last 6 turns)
-  const recentHistory = Array.isArray(history) ? history.slice(-6) : [];
+  // 6. Compact conversation history (Requirement 9: keep context compact to minimize token load)
+  const recentHistory = Array.isArray(history) ? history.slice(-4) : [];
   let formattedHistory = '';
   if (recentHistory.length > 0) {
     formattedHistory =
-      '[RECENT CONVERSATION HISTORY]:\n' +
+      '[RECENT CONTEXT]:\n' +
       recentHistory
-        .map((m) => `${m.sender === 'user' ? 'Student' : 'Market Mentor'}: ${m.text}`)
-        .join('\n\n');
+        .map((m) => `${m.sender === 'user' ? 'Student' : 'Market Mentor'}: ${m.text.slice(0, 180)}`)
+        .join('\n');
   }
 
   const userPromptText = formattedHistory
@@ -461,7 +511,7 @@ export async function generateMentorResponse(
 
   const promptParts: any[] = [{ text: userPromptText }];
 
-  // 5. Attachments support (Images, PDFs, Text files)
+  // 7. Attachments support (Images, PDFs, Text files)
   if (hasAttachments) {
     for (const att of attachments) {
       if (!att || !att.mimeType || !att.base64) continue;
@@ -492,44 +542,77 @@ export async function generateMentorResponse(
     throw new Error('GEMINI_API_KEY is not configured on the server. Please ensure the API key is active.');
   }
 
+  // 8. Zero-Cost Model Selection (Requirement 4 & 13)
+  const activeModel = validateZeroCostModel(getActiveFreeModel());
+
   let successfulAnswer = '';
-  let modelUsed = '';
   let lastError: any = null;
 
-  for (const modelCandidate of MODEL_CASCADE) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelCandidate,
-          contents: [{ role: 'user', parts: promptParts }],
-          config: { systemInstruction },
-        });
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: activeModel,
+        contents: [{ role: 'user', parts: promptParts }],
+        config: { systemInstruction },
+      });
 
-        const text = response.text?.trim();
-        if (text) {
-          successfulAnswer = text;
-          modelUsed = modelCandidate;
-          break;
-        }
-      } catch (err: any) {
-        lastError = err;
-        const status = err.status || (err.message && err.message.includes('503') ? 503 : null);
-        const isTransient = status === 503 || status === 429;
-
-        if (isTransient && attempt === 1) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          continue;
-        }
+      const text = response.text?.trim();
+      if (text) {
+        successfulAnswer = text;
         break;
       }
-    }
+    } catch (err: any) {
+      lastError = err;
+      const errMsg = String(err?.message || '');
 
-    if (successfulAnswer) {
+      // Check if this is a 429 / RESOURCE_EXHAUSTED / Quota limit error
+      const isQuotaError =
+        err?.status === 429 ||
+        errMsg.includes('429') ||
+        errMsg.includes('RESOURCE_EXHAUSTED') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('rate-limits') ||
+        errMsg.includes('free_tier_requests');
+
+      if (isQuotaError) {
+        // Daily quota exhausted: activate circuit breaker immediately; DO NOT retry (Requirement 6)
+        const quotaInfo = aiQuotaTracker.recordProviderQuotaError(errMsg);
+        aiQuotaTracker.recordRequest({
+          source: 'learning',
+          success: false,
+          isQuotaExhausted: true,
+          hasAttachment: hasAttachments,
+          modelUsed: activeModel,
+          latencyMs: Date.now() - startTime,
+          userExcerpt: trimmedQuestion,
+        });
+
+        throw new Error(
+          `DAILY_QUOTA_EXHAUSTED: ShareMarket operates on a strict ₹0 budget using Google's free-tier access. The daily free-tier limit (20 requests/day) has been reached. Please retry in ${quotaInfo.resetEta}. Your complete chat history, quiz progress, and paper trading portfolio are safely preserved.`
+        );
+      }
+
+      // If transient 503 (server demand spike), retry once after a short delay
+      const isTransient = err?.status === 503 || errMsg.includes('503');
+      if (isTransient && attempt === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        continue;
+      }
       break;
     }
   }
 
   if (!successfulAnswer) {
+    aiQuotaTracker.recordRequest({
+      source: 'learning',
+      success: false,
+      isQuotaExhausted: false,
+      hasAttachment: hasAttachments,
+      modelUsed: activeModel,
+      latencyMs: Date.now() - startTime,
+      userExcerpt: trimmedQuestion,
+    });
+
     let cleanDetail = '';
     if (lastError?.message) {
       try {
@@ -547,9 +630,21 @@ export async function generateMentorResponse(
     throw new Error(`Market Mentor is temporarily unavailable: ${userFriendlyNotice}`);
   }
 
+  // Record successful query & update per-user count
+  aiQuotaTracker.recordRequest({
+    source: 'learning',
+    success: true,
+    isQuotaExhausted: false,
+    hasAttachment: hasAttachments,
+    modelUsed: activeModel,
+    latencyMs: Date.now() - startTime,
+    userExcerpt: trimmedQuestion,
+  });
+  aiQuotaTracker.incrementUserUsage(userKey);
+
   return {
     answer: successfulAnswer,
-    modelUsed,
+    modelUsed: activeModel,
     retrievedLessons: lessonRefs,
     retrievedGlossary: glossaryRefs,
     latencyMs: Date.now() - startTime,

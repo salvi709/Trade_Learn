@@ -88,7 +88,7 @@ function geminiMentorPlugin() {
         try {
           const raw = await parseBody(req);
           const data = JSON.parse(raw || '{}');
-          const { question, history, mode = 'eli15', currentModule, currentLesson, attachments, learnerContext } = data;
+          const { question, userId, history, mode = 'eli15', currentModule, currentLesson, attachments, learnerContext } = data;
 
           if (!question || typeof question !== 'string') {
             res.statusCode = 400;
@@ -102,6 +102,7 @@ function geminiMentorPlugin() {
 
           const result = await generateMentorResponse({
             question,
+            userId: userId || (req.headers['x-user-id'] as string),
             history,
             mode,
             learnerContext,
@@ -132,12 +133,15 @@ function geminiMentorPlugin() {
             })
           );
         } catch (err: any) {
-          console.error('Mentor error:', err);
-          res.statusCode = 500;
+          const errMsg = err?.message || 'Failed to consult Market Mentor. Please retry.';
+          const isQuota = errMsg.includes('DAILY_QUOTA_EXHAUSTED') || errMsg.includes('USER_LIMIT_REACHED');
+          res.statusCode = isQuota ? 429 : 500;
           res.setHeader('Content-Type', 'application/json');
           return res.end(
             JSON.stringify({
-              error: err?.message || 'Failed to consult Market Mentor. Please retry.',
+              error: errMsg,
+              isQuotaExhausted: errMsg.includes('DAILY_QUOTA_EXHAUSTED'),
+              isUserLimit: errMsg.includes('USER_LIMIT_REACHED'),
             })
           );
         }

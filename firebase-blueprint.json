@@ -170,6 +170,35 @@
         { "name": "time", "type": "string" },
         { "name": "createdAt", "type": "string" }
       ]
+    },
+    {
+      "name": "FeedbackItem",
+      "path": "feedback/{feedbackId}",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "type", "type": "string" },
+        { "name": "category", "type": "string" },
+        { "name": "rating", "type": "number" },
+        { "name": "ratingLabel", "type": "string" },
+        { "name": "comment", "type": "string" },
+        { "name": "selectedReasons", "type": "array" },
+        { "name": "userId", "type": "string" },
+        { "name": "userEmail", "type": "string" },
+        { "name": "userName", "type": "string" },
+        { "name": "isAnonymous", "type": "boolean" },
+        { "name": "lessonId", "type": "string" },
+        { "name": "lessonTitle", "type": "string" },
+        { "name": "stageId", "type": "string" },
+        { "name": "stageTitle", "type": "string" },
+        { "name": "conversationId", "type": "string" },
+        { "name": "messageId", "type": "string" },
+        { "name": "questionExcerpt", "type": "string" },
+        { "name": "attachmentUrl", "type": "string" },
+        { "name": "status", "type": "string" },
+        { "name": "createdAt", "type": "string" },
+        { "name": "updatedAt", "type": "string" },
+        { "name": "adminNotes", "type": "string" }
+      ]
     }
   ]
 }

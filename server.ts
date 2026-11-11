@@ -65,7 +65,7 @@ function checkAdminAuth(req: Request): { authorized: boolean; email: string } {
 
 // Educational Market Mentor API endpoint (Powered by ShareMarket Knowledge Base & Resilient Cascade)
 app.post('/api/mentor', async (req: Request, res: Response) => {
-  const { question, history, mode = 'eli15', currentModule, currentLesson, attachments, learnerContext } = req.body;
+  const { question, userId, history, mode = 'eli15', currentModule, currentLesson, attachments, learnerContext } = req.body;
 
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Question is required.' });
@@ -78,6 +78,7 @@ app.post('/api/mentor', async (req: Request, res: Response) => {
   try {
     const result = await generateMentorResponse({
       question,
+      userId: userId || (req.headers['x-user-id'] as string),
       history,
       mode,
       learnerContext,
@@ -105,7 +106,8 @@ app.post('/api/mentor', async (req: Request, res: Response) => {
       topic,
     });
   } catch (error: any) {
-    console.error('Mentor API error:', error);
+    const errMsg = error?.message || 'Failed to consult Market Mentor. Please retry.';
+    const isQuota = errMsg.includes('DAILY_QUOTA_EXHAUSTED') || errMsg.includes('USER_LIMIT_REACHED');
     adminStore.recordMentorQuery({
       timestamp: new Date().toISOString(),
       mode: mode === 'deep_dive' ? 'deep_dive' : 'eli15',
@@ -114,11 +116,13 @@ app.post('/api/mentor', async (req: Request, res: Response) => {
       estimatedInputTokens,
       estimatedOutputTokens: 0,
       success: false,
-      error: error.message,
+      error: errMsg,
     });
 
-    return res.status(500).json({
-      error: error.message || 'Failed to consult Market Mentor. Please retry.',
+    return res.status(isQuota ? 429 : 500).json({
+      error: errMsg,
+      isQuotaExhausted: errMsg.includes('DAILY_QUOTA_EXHAUSTED'),
+      isUserLimit: errMsg.includes('USER_LIMIT_REACHED'),
     });
   }
 });

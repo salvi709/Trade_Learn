@@ -12,7 +12,8 @@ import {
   Sliders, 
   Sparkles,
   LayoutDashboard,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquareHeart
 } from 'lucide-react';
 import { 
   ADMIN_OWNER_EMAIL, 
@@ -33,6 +34,7 @@ import { AdminEngagementTab } from './AdminEngagementTab';
 import { AdminMonetizationTab } from './AdminMonetizationTab';
 import { AdminControlsTab } from './AdminControlsTab';
 import { AdminIntelligenceMentorTab } from './AdminIntelligenceMentorTab';
+import { AdminFeedbackTab } from './AdminFeedbackTab';
 import { FloatingAdminAIMentor } from './FloatingAdminAIMentor';
 
 interface AdminDashboardProps {
@@ -89,6 +91,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminEmail, onRe
     { id: 'ai_mentor', label: 'AI Mentor Analytics', icon: Bot },
     { id: 'engagement', label: 'Retention & Engagement', icon: Activity },
     { id: 'monetization', label: 'Monetization', icon: DollarSign },
+    { id: 'feedback', label: 'User Feedback', icon: MessageSquareHeart },
     { id: 'controls', label: 'System Controls', icon: Sliders },
     { id: 'admin_ai', label: 'Admin Intelligence AI', icon: Sparkles, highlight: true },
   ];
@@ -227,6 +230,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminEmail, onRe
             )}
             {activeTab === 'monetization' && (
               <AdminMonetizationTab analytics={analytics} />
+            )}
+            {activeTab === 'feedback' && (
+              <AdminFeedbackTab adminEmail={adminEmail} />
             )}
             {activeTab === 'controls' && (
               <AdminControlsTab adminEmail={adminEmail} analytics={analytics} />
