@@ -963,21 +963,33 @@ function AppContent() {
 
   // Delete conversation with instant optimistic state update
   const handleDeleteMentorConversation = async (convId: string) => {
-    // 1. Immediately update UI state so conversation vanishes instantly
-    const remaining = mentorConversations.filter((c) => c.id !== convId);
-    setMentorConversations(remaining);
+    let nextConvToSelect: string | null = null;
+    let shouldResetActive = false;
 
-    if (activeMentorConversationId === convId) {
-      if (remaining.length > 0) {
-        const nextConvId = remaining[0].id;
-        setActiveMentorConversationId(nextConvId);
-        void fetchConversationMessages(effectiveUid, nextConvId).then((msgs) => {
-          setMentorMessages(msgs.length > 0 ? msgs : [defaultWelcomeMessage]);
-        });
-      } else {
-        setActiveMentorConversationId(null);
+    // 1. Immediately update UI state so conversation vanishes instantly
+    setMentorConversations((prev) => {
+      const remaining = prev.filter((c) => c.id !== convId);
+      if (activeMentorConversationId === convId) {
+        if (remaining.length > 0) {
+          nextConvToSelect = remaining[0].id;
+        } else {
+          shouldResetActive = true;
+        }
+      }
+      return remaining;
+    });
+
+    if (nextConvToSelect) {
+      setActiveMentorConversationId(nextConvToSelect);
+      try {
+        const msgs = await fetchConversationMessages(effectiveUid, nextConvToSelect);
+        setMentorMessages(msgs.length > 0 ? msgs : [defaultWelcomeMessage]);
+      } catch {
         setMentorMessages([defaultWelcomeMessage]);
       }
+    } else if (shouldResetActive || activeMentorConversationId === convId) {
+      setActiveMentorConversationId(null);
+      setMentorMessages([defaultWelcomeMessage]);
     }
 
     // 2. Concurrently purge storage and Firestore in background
@@ -1249,15 +1261,21 @@ function AppContent() {
   // Individual message deletion handler for removing unwanted questions or answers
   const handleDeleteMentorMessage = async (messageId: string) => {
     const convId = activeMentorConversationId;
+    let filteredList: MentorMessage[] = [];
     // 1. Immediately update UI state so unwanted message disappears instantly
     setMentorMessages((prev) => {
       const filtered = prev.filter((m) => m.id !== messageId);
+      filteredList = filtered;
       return filtered.length > 0 ? filtered : [defaultWelcomeMessage];
     });
 
     // 2. Concurrently remove from storage and Firestore
     if (convId && messageId !== 'welcome') {
-      void deleteMentorMessage(effectiveUid, convId, messageId, mentorMessages);
+      try {
+        await deleteMentorMessage(effectiveUid, convId, messageId, filteredList);
+      } catch (err) {
+        console.warn('Delete message note:', err);
+      }
     }
   };
 

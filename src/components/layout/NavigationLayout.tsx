@@ -123,8 +123,8 @@ function VerticalDockNavItem({
           isCollapsed ? 'justify-center' : 'justify-between'
         } ${
           isActive
-            ? 'theme-primary-bg text-white shadow-xs font-bold'
-            : 'theme-secondary-text hover:theme-main-text hover:theme-surface-subtle hover:shadow-2xs'
+            ? 'bg-[#0D6847] text-white shadow-[0_0_18px_-2px_rgba(13,104,71,0.55)] font-bold ring-1 ring-emerald-400/30'
+            : 'theme-secondary-text hover:theme-main-text hover:bg-white/[0.04] dark:hover:bg-emerald-950/20 hover:shadow-2xs'
         }`}
       >
         {isCollapsed ? (
@@ -134,10 +134,10 @@ function VerticalDockNavItem({
             className={`p-1 rounded-lg transition-colors shrink-0 ${
               isActive 
                 ? 'bg-white/20 text-white' 
-                : 'theme-surface-subtle text-muted-foreground group-hover:theme-primary-text'
+                : 'text-muted-foreground group-hover:theme-primary-text'
             }`}
           >
-            <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text'}`} />
+            <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-emerald-400'}`} />
           </motion.div>
         ) : (
           // Expanded: Icon + Label + Indicator
@@ -151,7 +151,7 @@ function VerticalDockNavItem({
                     : 'theme-surface-subtle text-muted-foreground group-hover:theme-primary-text'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-emerald-400'}`} />
               </motion.div>
               <span className="truncate">{label}</span>
             </div>
@@ -160,7 +160,7 @@ function VerticalDockNavItem({
             {isActive ? (
               <span
                 aria-hidden
-                className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0 mr-1"
+                className="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_#10B981] shrink-0 mr-1"
               />
             ) : isHovered ? (
               <span
@@ -247,39 +247,34 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
 
   const navSections = [
     {
-      heading: 'HOME',
+      heading: 'OVERVIEW',
       items: [
-        { id: 'dashboard', label: 'Home Dashboard', icon: Compass },
+        { id: 'dashboard', label: 'Dashboard', icon: Compass },
       ]
     },
     {
-      heading: 'LEARN',
+      heading: 'CURRICULUM',
       items: [
         { id: 'roadmap', label: 'Learning Roadmap', icon: BookOpen },
-        { id: 'final_challenge', label: 'Mastery Challenge', icon: Trophy },
+        { id: 'mentor', label: 'Market Mentor AI', icon: Bot },
+        { id: 'final_challenge', label: 'Mastery Assessment', icon: Trophy },
       ]
     },
     {
-      heading: 'PRACTICE',
+      heading: 'SIMULATION & LABS',
       items: [
         { id: 'paper_trading', label: 'Paper Trading Lab', icon: TrendingUp },
         { id: 'journal', label: 'Trading Journal', icon: FileText },
         { id: 'stock_detective', label: 'Stock Detective', icon: Search },
-        { id: 'scam_detector', label: 'Scam & Risk Detector', icon: ShieldCheck },
+        { id: 'scam_detector', label: 'Risk & Scam Detector', icon: ShieldCheck },
       ]
     },
     {
-      heading: 'MENTOR',
-      items: [
-        { id: 'mentor', label: 'Ask Market Mentor', icon: Bot },
-      ]
-    },
-    {
-      heading: 'OTHER',
+      heading: 'RESOURCES',
       items: [
         { id: 'glossary', label: 'A-Z Glossary', icon: BookA },
-        { id: 'settings', label: 'Settings', icon: Settings },
-        { id: 'feedback', label: 'Send Feedback', icon: MessageSquareHeart },
+        { id: 'settings', label: 'Settings & Profile', icon: Settings },
+        { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart },
       ]
     },
     {
@@ -386,9 +381,18 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
         </div>
       </header>
 
+      {/* Mobile Drawer Overlay Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-35 md:hidden animate-in fade-in duration-200"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar for Desktop & Mobile Overlay */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen theme-card border-r theme-border flex flex-col justify-between z-40 shadow-2xs transition-all duration-300 ease-in-out ${
+        className={`fixed md:sticky top-0 left-0 h-screen theme-card border-r theme-border flex flex-col justify-between z-40 shadow-sm transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'md:w-20' : 'w-68 lg:w-72'
         } ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
@@ -721,7 +725,7 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
       </aside>
 
       {/* Main Content Viewport - Adjusts based on sidebar state */}
-      <main className={`flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-screen transition-all duration-300 ${
+      <main className={`flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-screen transition-all duration-300 pb-24 md:pb-8 ${
         isSidebarCollapsed ? 'md:ml-0' : ''
       }`}>
         {children}

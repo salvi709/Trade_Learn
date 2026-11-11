@@ -931,7 +931,22 @@ What would you like to examine?`;
   }
 
   // Untracked Metrics Check
-  if (q.includes('video') || q.includes('watch time') || q.includes('duration in minutes') || q.includes('referral') || q.includes('utm') || q.includes('payment') || q.includes('card') || q.includes('subscription revenue') || q.includes('refund')) {
+  if (
+    q.includes('session duration') ||
+    q.includes('duration in seconds') ||
+    q.includes('duration in minutes') ||
+    q.includes('average session') ||
+    q.includes('time spent') ||
+    q.includes('bounce rate') ||
+    q.includes('video') ||
+    q.includes('watch time') ||
+    q.includes('referral') ||
+    q.includes('utm') ||
+    q.includes('payment') ||
+    q.includes('card') ||
+    q.includes('subscription revenue') ||
+    q.includes('refund')
+  ) {
     return `### Telemetry Notice: Metric Not Tracked
 
 The metric requested is **not currently tracked** (untracked metric) by ShareMarket's analytics instrumentation.

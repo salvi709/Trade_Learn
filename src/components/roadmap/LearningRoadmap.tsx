@@ -50,12 +50,12 @@ export const LearningRoadmap: React.FC<LearningRoadmapProps> = ({
       {/* Header Banner */}
       <div 
         id="roadmap-header-card"
-        className="theme-card interactive-card border theme-border rounded-3xl p-6 md:p-8 shadow-sm space-y-4"
+        className="fintech-hero-card p-6 md:p-8 space-y-4"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider theme-primary-text theme-soft-accent-bg border theme-border px-2.5 py-0.5 rounded-md">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#0D6847] dark:text-[#10B981] bg-[#0D6847]/10 dark:bg-[#10B981]/15 border border-[#0D6847]/30 px-2.5 py-0.5 rounded-md">
                 Guided Progression
               </span>
               <span className="text-xs theme-secondary-text font-medium">
@@ -82,7 +82,7 @@ export const LearningRoadmap: React.FC<LearningRoadmapProps> = ({
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
                 <path
-                  className="theme-primary-text transition-all duration-500"
+                  className="text-emerald-500 transition-all duration-500"
                   strokeDasharray={`${progressPercent}, 100`}
                   strokeWidth="3.5"
                   strokeLinecap="round"
@@ -105,22 +105,22 @@ export const LearningRoadmap: React.FC<LearningRoadmapProps> = ({
         </div>
 
         {/* Legend status indicators */}
-        <div className="pt-3 border-t theme-border flex flex-wrap items-center gap-4 text-xs theme-secondary-text">
+        <div className="pt-3 border-t theme-border flex flex-wrap items-center gap-4 text-xs theme-secondary-text font-mono">
           <div className="flex items-center gap-1.5 font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5 theme-positive-text" />
-            <span>✓ Completed</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Completed</span>
           </div>
           <div className="flex items-center gap-1.5 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full theme-primary-bg inline-block animate-pulse"></span>
-            <span>◉ Current / In Progress</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            <span>Current / In Progress</span>
           </div>
           <div className="flex items-center gap-1.5 font-medium">
             <Circle className="w-3.5 h-3.5 theme-muted-text" />
-            <span>○ Available</span>
+            <span>Available</span>
           </div>
           <div className="flex items-center gap-1.5 font-medium">
             <Lock className="w-3.5 h-3.5 theme-warning-text" />
-            <span>🔒 Locked (Preview Available)</span>
+            <span>Locked (Preview Available)</span>
           </div>
         </div>
       </div>
@@ -145,16 +145,16 @@ export const LearningRoadmap: React.FC<LearningRoadmapProps> = ({
               <div
                 className={`absolute left-0 top-6 w-12 h-12 rounded-2xl border hidden md:flex items-center justify-center font-mono font-bold text-xs transition-all shadow-xs ${
                   isCompleted
-                    ? 'bg-emerald-500/10 theme-positive-text border-emerald-500/30'
+                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
                     : isInProgress
-                    ? 'theme-soft-accent-bg theme-primary-text border-emerald-500 ring-2 ring-emerald-500/20'
+                    ? 'bg-[#0D6847] text-white border-emerald-400 shadow-[0_0_15px_rgba(13,104,71,0.5)]'
                     : isAvailable
                     ? 'theme-card theme-main-text theme-border'
                     : 'theme-surface-subtle theme-warning-text theme-border'
                 }`}
               >
                 {isCompleted ? (
-                  <CheckCircle2 className="w-5 h-5 theme-positive-text" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                 ) : isLocked ? (
                   <Lock className="w-4 h-4 theme-warning-text" />
                 ) : (
@@ -166,66 +166,67 @@ export const LearningRoadmap: React.FC<LearningRoadmapProps> = ({
               <div
                 id={`module-card-${mod.id}`}
                 data-tour={mod.id === 'mod_1' ? 'learning-roadmap-stages' : undefined}
-                className={`theme-card interactive-card rounded-3xl border transition-all shadow-xs p-6 md:p-7 space-y-5 ${
-                  isCompleted
-                    ? 'border-emerald-500/30 hover:border-emerald-500/50'
-                    : isInProgress
-                    ? 'border-emerald-500 ring-1 ring-emerald-500/20'
-                    : isAvailable
-                    ? 'theme-border hover:border-slate-400'
-                    : 'theme-border theme-surface-subtle'
+                className={`fintech-card p-6 md:p-7 space-y-5 transition-all ${
+                  isInProgress
+                    ? 'ring-1 ring-emerald-500/40 border-emerald-500/60 shadow-[0_0_24px_-4px_rgba(16,185,129,0.18)]'
+                    : isCompleted
+                    ? 'border-emerald-500/25'
+                    : ''
                 }`}
               >
                 {/* Module Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b theme-border pb-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-mono font-bold theme-secondary-text theme-surface-subtle px-2 py-0.5 rounded border theme-border">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b theme-border pb-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="font-mono font-bold theme-main-text">
                         Stage {mod.levelNumber}
                       </span>
+                      <span className="theme-muted-text">·</span>
 
-                      {/* Status Badges */}
+                      {/* Status Indicators (Zero-pill discipline) */}
                       {isCompleted && (
-                        <span className="text-[11px] font-mono font-bold theme-positive-text bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> COMPLETED
+                        <span className="font-mono text-[11px] font-semibold theme-positive-text flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Completed
                         </span>
                       )}
                       {isInProgress && (
-                        <span className="text-[11px] font-mono font-bold theme-primary-text theme-soft-accent-bg border theme-border px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full theme-primary-bg animate-pulse"></span>
-                          IN PROGRESS
+                        <span className="font-mono text-[11px] font-semibold theme-primary-text flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          In Progress
                         </span>
                       )}
                       {isAvailable && (
-                        <span className="text-[11px] font-mono font-bold theme-secondary-text theme-surface-subtle border theme-border px-2.5 py-0.5 rounded-full">
-                          AVAILABLE
+                        <span className="font-mono text-[11px] font-medium theme-secondary-text">
+                          Available
                         </span>
                       )}
                       {isLocked && (
-                        <span className="text-[11px] font-mono font-bold theme-warning-text bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <Lock className="w-3 h-3 theme-warning-text" /> LOCKED • PREVIEW AVAILABLE
+                        <span className="font-mono text-[11px] font-medium theme-warning-text flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Locked
                         </span>
                       )}
 
-                      <span className="text-xs theme-secondary-text font-medium">
-                        {completedInMod} / {mod.lessons.length} Lessons Finished
+                      <span className="theme-muted-text">·</span>
+                      <span className="theme-secondary-text font-mono text-[11px]">
+                        {completedInMod} / {mod.lessons.length} lessons finished
                       </span>
                     </div>
 
                     <h3 className="text-lg md:text-xl font-bold font-heading theme-main-text">
                       {mod.title}
                     </h3>
-                    <p className="text-xs theme-secondary-text max-w-xl">
+                    <p className="text-xs theme-secondary-text max-w-xl leading-relaxed">
                       {mod.tagline}
                     </p>
                   </div>
 
-                  {/* Estimated time and badge */}
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="text-xs font-mono theme-secondary-text flex items-center gap-1 theme-surface-subtle px-2.5 py-1 rounded-lg border theme-border">
-                      <Clock className="w-3.5 h-3.5 theme-muted-text" /> {mod.estimatedTime}
+                  {/* Estimated time and track label */}
+                  <div className="flex items-center gap-3 shrink-0 text-xs font-mono theme-muted-text">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {mod.estimatedTime}
                     </span>
-                    <span className="text-xs font-mono theme-surface-subtle theme-main-text px-3 py-1 rounded-full font-semibold border theme-border">
+                    <span>·</span>
+                    <span className="theme-secondary-text font-medium">
                       {mod.badge}
                     </span>
                   </div>

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   TrendingUp,
+  TrendingDown,
   BookOpen,
   ShieldCheck,
-  ShieldAlert,
   ArrowRight,
   Bot,
   Lock,
@@ -12,18 +12,24 @@ import {
   Clock,
   Eye,
   Flame,
-  CheckSquare,
   Target,
   FileText,
   Layers,
   Search,
+  Sparkles,
+  BarChart3,
+  Award,
+  Zap,
+  ChevronRight,
+  HelpCircle,
+  Activity,
+  ArrowUpRight
 } from 'lucide-react';
 import { UserProfile, UserProgress, PaperPortfolio, Module, Lesson } from '../../types';
 import { getModuleStatus, getNextRecommendedLesson } from '../../data/curriculumData';
+import { FICTIONAL_STOCKS } from '../../data/marketData';
 import { getAvatarById } from '../../config/avatars';
 import { LockedModulePreview } from '../learning/LockedModulePreview';
-import { StreakCard } from './StreakCard';
-import { MarketMascot } from '../mascot/MarketMascot';
 import { MascotWelcomePopup } from './MascotWelcomePopup';
 
 interface DashboardHomeProps {
@@ -48,6 +54,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onOpenMentor,
 }) => {
   const [selectedLockedModule, setSelectedLockedModule] = useState<Module | null>(null);
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('NOVA');
+  const [challengeAnswer, setChallengeAnswer] = useState<number | null>(null);
+  const [challengeSubmitted, setChallengeSubmitted] = useState<boolean>(false);
   const shouldReduceMotion = useReducedMotion();
 
   // Determine next recommended lesson from real progress
@@ -63,24 +72,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     Math.round((completedCount / (totalLessonsCount || 1)) * 100)
   );
 
-  // Progress within the active stage
-  const currentStageCompletedCount = currentModule
-    ? currentModule.lessons.filter((l) => progress.completedLessons.includes(l.id)).length
-    : 0;
-  const currentStageTotalCount = currentModule ? currentModule.lessons.length : 1;
-
-  // Determine learner level
-  let levelTitle = 'Level 1: Novice Observer';
-  if (completedCount >= 10) {
-    levelTitle = 'Level 5: Certified Market Analyst';
-  } else if (completedCount >= 7) {
-    levelTitle = 'Level 4: Market Literate';
-  } else if (completedCount >= 4) {
-    levelTitle = 'Level 3: Chart Explorer';
-  } else if (completedCount >= 2) {
-    levelTitle = 'Level 2: Basic Builder';
-  }
-
   const completedModulesCount = modules.filter(
     (m) => getModuleStatus(m, progress.completedLessons, progress.completedModules) === 'COMPLETED'
   ).length;
@@ -92,378 +83,284 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       : 100;
 
   const avatar = getAvatarById(profile.avatarId);
+  const streak = progress.currentStreak || progress.learningStreakDays || 1;
   const formattedVirtualCash = `₹${portfolio.virtualCash.toLocaleString('en-IN', {
     maximumFractionDigits: 0,
   })}`;
 
-  // Concise Core ShareMarket Tools (Section 03)
-  const coreTools = [
+  // Active stock for the simulated intraday preview chart
+  const activeStock = FICTIONAL_STOCKS.find((s) => s.symbol === selectedStockSymbol) || FICTIONAL_STOCKS[0];
+
+  // Daily Checkpoint Challenge Data
+  const dailyChallenge = {
+    question: "You want to buy 50 shares of NOVA only if the price pulls back to ₹720. What order type should you place?",
+    options: [
+      { text: "Market Order (executes immediately at current price)", correct: false },
+      { text: "Limit Order at ₹720 (waits until price drops to ₹720)", correct: true },
+      { text: "Stop-Loss Order at ₹800 (triggers on breakout)", correct: false }
+    ],
+    explanation: "A Limit Order guarantees your maximum execution price. Setting a Buy Limit at ₹720 means your order will only fill at ₹720 or lower!"
+  };
+
+  const handleChallengeSelect = (index: number) => {
+    if (challengeSubmitted) return;
+    setChallengeAnswer(index);
+    setChallengeSubmitted(true);
+  };
+
+  // 4 Top Metric Cards (Fintech Reference 3 & 4)
+  const metricCards = [
     {
-      id: 'paper_trading',
-      dataTour: 'tool-paper-trading',
-      icon: TrendingUp,
-      title: 'Paper Trading Lab',
-      description: `Practice trading with ${formattedVirtualCash} virtual money.`,
-      actionLabel: 'Open',
-      onClick: () => onNavigateTab('paper_trading'),
-    },
-    {
-      id: 'mentor',
-      dataTour: 'tool-ai-mentor',
-      icon: Bot,
-      title: 'Market Mentor',
-      description: 'Ask questions and understand difficult concepts.',
-      actionLabel: 'Open',
-      onClick: () => onOpenMentor(),
-    },
-    {
-      id: 'roadmap',
-      dataTour: 'tool-curriculum',
-      icon: BookOpen,
-      title: 'Curriculum & Lessons',
-      description: 'Access structured stages, examples, and quizzes.',
-      actionLabel: 'Open',
+      id: 'curriculum',
+      label: 'CURRICULUM MASTERY',
+      value: `${progressPercent}%`,
+      trend: `${completedCount}/${totalLessonsCount} Lessons Done`,
+      isPositive: true,
+      sparkline: 'M0 24 Q 25 18, 50 12 T 100 4',
+      sublabel: `Stage ${currentModule.levelNumber} Active`,
       onClick: () => onNavigateTab('roadmap'),
     },
     {
-      id: 'stock_detective',
-      dataTour: 'tool-strategy',
-      icon: Search,
-      title: 'Forensic & Strategy Lab',
-      description: 'Analyze company red flags and market scenarios.',
-      actionLabel: 'Open',
-      onClick: () => onNavigateTab('stock_detective'),
+      id: 'equity',
+      label: 'VIRTUAL EQUITY',
+      value: formattedVirtualCash,
+      trend: '100% Risk-Free Sandbox',
+      isPositive: true,
+      sparkline: 'M0 20 Q 25 15, 50 16 T 100 6',
+      sublabel: `${Object.keys(portfolio.positions).length} Open Positions`,
+      onClick: () => onNavigateTab('paper_trading'),
     },
     {
-      id: 'journal',
-      dataTour: 'tool-journal',
-      icon: FileText,
-      title: 'Trading Journal',
-      description: 'Log trade rationale and build calm discipline.',
-      actionLabel: 'Open',
-      onClick: () => onNavigateTab('journal'),
+      id: 'streak',
+      label: 'CONSISTENCY HABIT',
+      value: `${streak} Days`,
+      trend: streak >= 3 ? 'Top 10% Consistency' : 'Building Daily Habit',
+      isPositive: true,
+      sparkline: 'M0 22 Q 25 20, 50 14 T 100 8',
+      sublabel: `${progress.longestStreak || Math.max(streak, 1)} Day Record`,
+      icon: Flame,
+      onClick: () => onNavigateTab('roadmap'),
+    },
+    {
+      id: 'accuracy',
+      label: 'DECISION ACCURACY',
+      value: `${averageQuizScore}%`,
+      trend: 'Quiz Checkpoint Score',
+      isPositive: averageQuizScore >= 75,
+      sparkline: 'M0 16 Q 25 22, 50 12 T 100 2',
+      sublabel: `${quizScoresList.length} Quizzes Completed`,
+      onClick: () => onNavigateTab('roadmap'),
     },
   ];
 
+  // Core Tools for 2x2 grid
+  const coreTools = [
+    {
+      id: 'paper_trading',
+      icon: TrendingUp,
+      title: 'Paper Trading Lab',
+      description: `Simulate real trades with ${formattedVirtualCash} virtual cash.`,
+      action: 'Open Lab',
+      onClick: () => onNavigateTab('paper_trading'),
+      badge: 'Live Simulator'
+    },
+    {
+      id: 'mentor',
+      icon: Bot,
+      title: 'Market Mentor AI',
+      description: 'Ask questions, decode terminology, and analyze charts.',
+      action: 'Ask Question',
+      onClick: () => onOpenMentor(),
+      badge: 'Instant Tutor'
+    },
+    {
+      id: 'journal',
+      icon: FileText,
+      title: 'Trading Journal',
+      description: 'Record entry thesis, emotional state, and discipline rules.',
+      action: 'Open Journal',
+      onClick: () => onNavigateTab('journal'),
+      badge: 'Discipline'
+    },
+    {
+      id: 'stock_detective',
+      icon: Search,
+      title: 'Forensic Detective',
+      description: 'Analyze balance sheet red flags and spot fraudulent traps.',
+      action: 'Investigate',
+      onClick: () => onNavigateTab('stock_detective'),
+      badge: 'Forensics'
+    },
+  ];
+
+  // Calculate chart path points for the active stock
+  const minPrice = Math.min(...activeStock.priceHistory.map(p => p.price));
+  const maxPrice = Math.max(...activeStock.priceHistory.map(p => p.price));
+  const priceRange = maxPrice - minPrice || 1;
+
+  const chartPoints = activeStock.priceHistory.map((p, i) => {
+    const x = (i / (activeStock.priceHistory.length - 1)) * 300;
+    const y = 85 - ((p.price - minPrice) / priceRange) * 65;
+    return { x, y, price: p.price, time: p.time };
+  });
+
+  const pathD = chartPoints.reduce((acc, pt, i) => {
+    return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+  }, '');
+
+  const areaD = `${pathD} L 300 95 L 0 95 Z`;
+
   return (
-    <div className="space-y-10 pb-16">
+    <div className="space-y-8 pb-16 animate-in fade-in duration-300">
       {/* =====================================================================
-          SECTION 01 — WELCOME & CURRENT STATUS ("Where am I right now?")
+          HEADER BAR: EDITORIAL TITLE & LIVE STATUS
          ===================================================================== */}
-      <motion.section
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.48, ease: PREMIUM_EASE }}
-        aria-label="Your Journey and Current Status"
-        className="space-y-3"
-      >
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-widest theme-primary-text">
-            01 — Your Journey
-          </span>
-          <span className="text-[11px] font-mono theme-muted-text">
-            Stage {currentModule.levelNumber} of {modules.length}
-          </span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b theme-border pb-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-[#0D6847] dark:text-[#10B981] font-bold uppercase tracking-wider">
+              WORKSPACE // INSTITUTIONAL LEARNING LAB
+            </span>
+            <span className="theme-muted-text">·</span>
+            <span className="theme-muted-text">Stage {currentModule.levelNumber} Active</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading theme-main-text tracking-tight">
+            Financial Command Center
+          </h1>
+          <p className="text-xs sm:text-sm theme-secondary-text max-w-2xl">
+            Welcome back, <strong className="theme-main-text font-semibold">{profile.displayName || 'Learner'}</strong>. Master market mechanics, analyze corporate financials, and build risk-free confidence.
+          </p>
         </div>
 
-        <div
-          id="dashboard-hero-banner"
-          data-tour="dashboard-welcome"
-          className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch"
-        >
-          {/* Main Welcome & Overall Status Card */}
-          <div className="lg:col-span-7 theme-card interactive-card rounded-3xl p-6 sm:p-7 border theme-border shadow-2xs flex flex-col justify-between space-y-6">
-            <div className="flex items-start gap-4 sm:gap-5">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl theme-soft-accent-bg border theme-border flex items-center justify-center text-3xl sm:text-4xl shadow-xs shrink-0">
-                {avatar.svgIcon}
-              </div>
-
-              <div className="space-y-1.5 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-mono font-bold theme-primary-text theme-soft-accent-bg px-2.5 py-0.5 rounded-full border theme-border">
-                    {levelTitle}
-                  </span>
-                  <span className="text-xs text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-mono font-bold flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    {progress.currentStreak || progress.learningStreakDays || 1} Day Streak
-                  </span>
-                  <span className="text-[11px] font-mono theme-muted-text hidden sm:inline">
-                    • {avatar.role}
-                  </span>
-                </div>
-
-                <h1 className="text-2xl sm:text-3xl font-bold font-heading theme-main-text tracking-tight">
-                  Welcome back, {profile.displayName || 'Learner'}!
-                </h1>
-
-                <p className="text-xs sm:text-sm theme-secondary-text leading-relaxed">
-                  You are currently on{' '}
-                  <strong className="theme-main-text font-semibold">
-                    Stage {currentModule.levelNumber}: {currentModule.title}
-                  </strong>
-                  . Learn step-by-step and practice risk-free at your own pace.
-                </p>
-              </div>
-            </div>
-
-            {/* Calm Secondary Progress Summary Bar */}
-            <div className="pt-4 border-t theme-border space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="theme-secondary-text font-medium">
-                  Overall Curriculum Progress
-                </span>
-                <span className="font-mono font-bold theme-main-text">
-                  {progressPercent}% ({completedCount}/{totalLessonsCount} lessons)
-                </span>
-              </div>
-
-              <div className="w-full theme-surface-subtle h-2 rounded-full overflow-hidden border theme-border">
-                <div
-                  className="theme-primary-bg h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[11px] font-mono theme-muted-text">
-                <span>
-                  Stages Completed:{' '}
-                  <strong className="theme-main-text">
-                    {completedModulesCount}/{modules.length}
-                  </strong>
-                </span>
-                <span>
-                  Quiz Accuracy:{' '}
-                  <strong className="theme-primary-text">{averageQuizScore}%</strong>
-                </span>
-                <span>
-                  Virtual Balance:{' '}
-                  <strong className="theme-positive-text">{formattedVirtualCash}</strong>
-                </span>
-              </div>
-            </div>
+        {/* Live Status Indicators */}
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border theme-border theme-surface-subtle text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="theme-secondary-text font-medium">Virtual Exchange Live</span>
           </div>
-
-          {/* Companion Daily Streak & Habit Card */}
-          <div data-tour="dashboard-streak" className="lg:col-span-5">
-            <StreakCard
-              progress={progress}
-              onActionClick={() => currentLesson && onSelectLesson(currentLesson)}
-              className="h-full"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateTab('roadmap')}
+            className="px-3 py-1.5 rounded-xl border theme-border theme-surface-subtle hover:theme-card text-xs font-mono font-semibold theme-main-text transition-colors cursor-pointer"
+          >
+            {completedModulesCount}/{modules.length} Stages Mastered
+          </button>
         </div>
-      </motion.section>
-
-      {/* Interactive Bull & Bear Welcome Pop-up (Dismissible, once per session, non-blocking) */}
-      <MascotWelcomePopup
-        displayName={profile.displayName || 'Learner'}
-        currentStageTitle={`Stage ${currentModule.levelNumber}: ${currentModule.title}`}
-        onOpenMentor={onOpenMentor}
-      />
+      </div>
 
       {/* =====================================================================
-          SECTION 02 — CONTINUE WHERE YOU LEFT OFF ("What should I do next?")
+          SECTION 1 — TOP 4 FINTECH KPI CARDS (References 1, 3, 4)
+         ===================================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metricCards.map((card, idx) => (
+          <motion.div
+            key={card.id}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: idx * 0.05, ease: PREMIUM_EASE }}
+            onClick={card.onClick}
+            className="fintech-card p-5 cursor-pointer interactive-card transition-all group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-mono tracking-wider theme-muted-text font-semibold uppercase">
+                {card.label}
+              </span>
+              <ArrowUpRight className="w-3.5 h-3.5 theme-muted-text group-hover:text-emerald-400 transition-colors" />
+            </div>
+
+            <div className="flex items-baseline justify-between gap-2 mb-2">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
+                {card.value}
+              </div>
+              {/* Mini Sparkline SVG */}
+              <div className="w-16 h-7 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                <svg viewBox="0 0 100 28" className="w-full h-full overflow-visible">
+                  <path
+                    d={card.sparkline}
+                    fill="none"
+                    stroke="#10B981"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] font-mono">
+              <span className="text-emerald-500 font-semibold">{card.trend}</span>
+              <span className="theme-muted-text">{card.sublabel}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* =====================================================================
+          SECTION 2 — HERO STAGE PROGRESSION BANNER (References 2 'LearnWell' & 4)
          ===================================================================== */}
       {currentLesson && (
-        <motion.section
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+        <motion.div
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.52, delay: 0.08, ease: PREMIUM_EASE }}
-          aria-label="Continue Learning"
-          className="space-y-3"
+          transition={{ duration: 0.5, delay: 0.15, ease: PREMIUM_EASE }}
+          className="fintech-hero-card p-6 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center"
         >
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-widest theme-primary-text">
-              02 — Continue Learning
-            </span>
-            <span className="text-[11px] font-mono theme-muted-text">
-              Recommended Next Step
-            </span>
-          </div>
-
-          <div
-            data-tour="continue-learning"
-            className="theme-card interactive-card rounded-3xl p-6 sm:p-8 border theme-border shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-6"
-          >
-            <div className="space-y-3.5 max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-[11px] font-mono uppercase theme-primary-text theme-soft-accent-bg font-bold tracking-wider px-2.5 py-0.5 rounded-lg border theme-border">
-                  Stage {currentModule.levelNumber} • {currentModule.badge}
-                </span>
-                <span className="text-xs theme-secondary-text font-semibold">
-                  {currentModule.title}
-                </span>
-                <span className="text-[11px] font-mono theme-muted-text flex items-center gap-1 ml-auto sm:ml-0">
-                  <Clock className="w-3.5 h-3.5" />
-                  {currentLesson.readTimeMinutes} min read
-                </span>
-              </div>
-
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold font-heading theme-main-text leading-tight">
-                  {currentLesson.title}
-                </h2>
-                <p className="text-xs sm:text-sm theme-secondary-text leading-relaxed mt-1">
-                  {currentLesson.shortDesc}
-                </p>
-              </div>
-
-              {currentLesson.eli15?.keyTakeaway && (
-                <div className="theme-surface-subtle border theme-border rounded-2xl p-3.5 flex items-start gap-2.5">
-                  <CheckSquare className="w-4 h-4 theme-primary-text shrink-0 mt-0.5" />
-                  <div className="text-xs theme-main-text leading-relaxed">
-                    <span className="font-mono uppercase text-[10px] theme-muted-text font-semibold block mb-0.5">
-                      Core Learning Objective
-                    </span>
-                    {currentLesson.eli15.keyTakeaway}
-                  </div>
-                </div>
-              )}
+          {/* Left Column: Continue Learning CTA */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#0D6847] dark:text-[#10B981] bg-[#0D6847]/10 dark:bg-[#10B981]/15 px-2.5 py-0.5 rounded-md border border-[#0D6847]/20">
+                ACTIVE LESSON · STAGE {currentModule.levelNumber}
+              </span>
+              <span className="theme-muted-text">·</span>
+              <span className="text-xs font-mono theme-muted-text flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                {currentLesson.readTimeMinutes} min read
+              </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end justify-between gap-3 pt-4 lg:pt-0 border-t lg:border-t-0 theme-border shrink-0">
-              <div className="flex items-center gap-1.5 text-xs theme-secondary-text font-mono">
-                <Target className="w-4 h-4 theme-primary-text shrink-0" />
-                <span>
-                  Stage Progress: {currentStageCompletedCount}/{currentStageTotalCount} lessons
-                </span>
-              </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black font-heading theme-main-text leading-tight tracking-tight">
+                {currentLesson.title}
+              </h2>
+              <p className="text-xs sm:text-sm theme-secondary-text leading-relaxed mt-1.5 max-w-xl">
+                {currentLesson.shortDesc}
+              </p>
+            </div>
 
+            {currentLesson.eli15?.keyTakeaway && (
+              <div className="theme-surface-subtle border theme-border rounded-xl p-3 text-xs theme-main-text leading-relaxed max-w-xl flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-semibold block text-[11px] text-emerald-500">Key Rule:</strong>
+                  {currentLesson.eli15.keyTakeaway}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-4 pt-1">
               <button
                 type="button"
                 id="btn-continue-learning-cta"
                 onClick={() => onSelectLesson(currentLesson)}
-                className="group px-6 py-3.5 theme-btn-primary font-bold text-xs sm:text-sm rounded-2xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all interactive-btn"
+                className="px-6 py-3 bg-[#0D6847] text-white font-bold text-xs sm:text-sm rounded-xl shadow-[0_0_20px_-3px_rgba(13,104,71,0.5)] hover:bg-[#095237] transition-all flex items-center gap-2 cursor-pointer interactive-btn"
               >
                 <span>Continue Lesson</span>
-                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('roadmap')}
+                className="text-xs font-semibold theme-secondary-text hover:theme-main-text transition-colors cursor-pointer"
+              >
+                View Full Roadmap →
               </button>
             </div>
           </div>
-        </motion.section>
-      )}
 
-      {/* =====================================================================
-          SECTION 03 — CORE SHAREMARKET TOOLS ("What tools do I have?")
-         ===================================================================== */}
-      <motion.section
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, delay: 0.16, ease: PREMIUM_EASE }}
-        aria-label="Core ShareMarket Tools"
-        className="space-y-3"
-      >
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-widest theme-primary-text">
-            03 — Explore & Practice
-          </span>
-          <span className="text-[11px] font-mono theme-muted-text">
-            Core Platform Shortcuts
-          </span>
-        </div>
-
-        <div
-          data-tour="dashboard-core-tools"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
-        >
-          {coreTools.map((tool, idx) => {
-            const Icon = tool.icon;
-            return (
-              <motion.button
-                key={tool.id}
-                type="button"
-                data-tour={tool.dataTour}
-                onClick={tool.onClick}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.45,
-                  delay: shouldReduceMotion ? 0 : 0.18 + idx * 0.06,
-                  ease: PREMIUM_EASE,
-                }}
-                className="group theme-card interactive-card rounded-2xl p-5 border theme-border text-left flex flex-col justify-between gap-4 cursor-pointer shadow-2xs"
-              >
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl theme-soft-accent-bg border theme-border flex items-center justify-center theme-primary-text transition-transform duration-200 group-hover:scale-105">
-                    <Icon className="w-5 h-5" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-bold font-heading theme-main-text">
-                      {tool.title}
-                    </h3>
-                    <p className="text-xs theme-secondary-text leading-relaxed line-clamp-2">
-                      {tool.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t theme-border flex items-center justify-between text-xs font-bold theme-primary-text">
-                  <span>{tool.actionLabel}</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
-      </motion.section>
-
-      {/* =====================================================================
-          SECTION 04 — 10-STAGE LEARNING ROADMAP ("What's my full journey?")
-         ===================================================================== */}
-      <motion.section
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 22 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.55, ease: PREMIUM_EASE }}
-        aria-label="10-Stage Learning Roadmap"
-        className="space-y-3"
-      >
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-widest theme-primary-text">
-            04 — Learning Roadmap
-          </span>
-          <span className="text-[11px] font-mono theme-muted-text">
-            10 Sequential Stages
-          </span>
-        </div>
-
-        <div
-          data-tour="dashboard-roadmap-matrix"
-          className="theme-card rounded-3xl p-6 sm:p-8 border theme-border shadow-2xs space-y-6"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b theme-border">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 theme-primary-text" />
-                <h3 className="text-lg sm:text-xl font-bold font-heading theme-main-text">
-                  10-Stage Learning Roadmap
-                </h3>
-              </div>
-              <p className="text-xs theme-secondary-text">
-                Sequential milestone structure. Complete each stage to unlock advanced chart analysis and paper trading.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              id="btn-view-full-roadmap"
-              onClick={() => onNavigateTab('roadmap')}
-              className="group text-xs font-bold theme-primary-text hover:underline flex items-center gap-1 cursor-pointer shrink-0 interactive-btn"
-            >
-              <span>View Full Roadmap</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-            </button>
-          </div>
-
-          {/* 10 Modules Grid Matrix */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-            {modules.map((mod) => {
-              const status = getModuleStatus(
-                mod,
-                progress.completedLessons,
-                progress.completedModules
-              );
+          {/* Right Column: 3 Stage Cards Preview (LearnWell Reference 2) */}
+          <div className="lg:col-span-5 grid grid-cols-3 gap-3">
+            {modules.slice(0, 3).map((mod, idx) => {
+              const status = getModuleStatus(mod, progress.completedLessons, progress.completedModules);
               const isCompleted = status === 'COMPLETED';
               const isInProgress = status === 'IN_PROGRESS';
               const isLocked = status === 'LOCKED';
@@ -475,95 +372,330 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     if (isLocked) {
                       setSelectedLockedModule(mod);
                     } else {
-                      const nextLes =
-                        mod.lessons.find((l) => !progress.completedLessons.includes(l.id)) ||
-                        mod.lessons[0];
-                      onSelectLesson(nextLes);
+                      const nextL = mod.lessons.find((l) => !progress.completedLessons.includes(l.id)) || mod.lessons[0];
+                      onSelectLesson(nextL);
                     }
                   }}
-                  className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between space-y-3 theme-card interactive-card cursor-pointer ${
-                    isCompleted
-                      ? 'border-emerald-500/40 ring-1 ring-emerald-500/20'
-                      : isInProgress
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
-                      : 'theme-border opacity-85'
+                  className={`p-3.5 rounded-xl border text-left flex flex-col justify-between space-y-3 transition-all cursor-pointer ${
+                    isInProgress
+                      ? 'theme-card border-emerald-500 ring-1 ring-emerald-500/30 shadow-xs'
+                      : isCompleted
+                      ? 'theme-card border-emerald-500/40 bg-emerald-500/5'
+                      : 'theme-surface-subtle theme-border opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold theme-muted-text uppercase">
-                        Stage {mod.levelNumber}
-                      </span>
-
-                      {isCompleted && (
-                        <span className="text-[10px] font-mono font-bold theme-primary-text theme-soft-accent-bg px-2 py-0.5 rounded-full flex items-center gap-1 border theme-border">
-                          <CheckCircle2 className="w-3 h-3" /> Done
-                        </span>
-                      )}
-                      {isInProgress && (
-                        <span className="text-[10px] font-mono font-bold theme-primary-text theme-soft-accent-bg px-2 py-0.5 rounded-full flex items-center gap-1 border theme-border">
-                          <span className="w-1.5 h-1.5 rounded-full theme-primary-bg animate-pulse"></span>
-                          Active
-                        </span>
-                      )}
-                      {isLocked && (
-                        <span className="text-[10px] font-mono font-bold theme-muted-text theme-surface-subtle px-2 py-0.5 rounded-full flex items-center gap-1 border theme-border">
-                          <Lock className="w-2.5 h-2.5 theme-muted-text" /> Locked
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="text-xs sm:text-sm font-bold theme-main-text line-clamp-1">
-                      {mod.title}
-                    </h4>
-                    <p className="text-[11px] theme-secondary-text line-clamp-2 leading-tight">
-                      {mod.tagline}
-                    </p>
+                  <div className="space-y-1">
+                    <span className="font-mono text-[10px] font-bold theme-muted-text block">
+                      0{idx + 1}
+                    </span>
+                    <h3 className="text-xs font-bold theme-main-text line-clamp-2 leading-tight">
+                      {mod.title.split(':')[0] || mod.title}
+                    </h3>
                   </div>
 
-                  <div className="pt-2.5 border-t theme-border flex items-center justify-between">
-                    <span className="text-[10px] font-mono theme-muted-text">
-                      {mod.lessons.length} Lessons
-                    </span>
-
-                    {isLocked ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedLockedModule(mod);
-                        }}
-                        className="text-[11px] font-bold theme-secondary-text hover:theme-main-text flex items-center gap-1 cursor-pointer interactive-btn"
-                      >
-                        <Eye className="w-3 h-3" /> Preview
-                      </button>
+                  <div className="pt-2 border-t theme-border flex items-center justify-between text-[10px] font-mono">
+                    {isCompleted ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3" /> Done
+                      </span>
+                    ) : isInProgress ? (
+                      <span className="text-emerald-500 font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
+                      </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const nextLes =
-                            mod.lessons.find((l) => !progress.completedLessons.includes(l.id)) ||
-                            mod.lessons[0];
-                          onSelectLesson(nextLes);
-                        }}
-                        className="text-[11px] font-bold theme-primary-text hover:underline flex items-center gap-1 cursor-pointer interactive-btn"
-                      >
-                        <span>{isCompleted ? 'Review' : 'Open'}</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
+                      <span className="theme-muted-text flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5" /> Locked
+                      </span>
                     )}
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
-      </motion.section>
+        </motion.div>
+      )}
 
-      {/* Educational Safety & Integrity Banner */}
+      {/* =====================================================================
+          SECTION 3 — TWO-COLUMN INTERACTIVE WORKSPACE (References 1 & 4)
+         ===================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column (7 cols): Simulated Market Pulse Chart + Daily Challenge */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Simulated Intraday Market Curve (Auto Trades Chart style) */}
+          <div className="fintech-card p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b theme-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-500" />
+                  <h3 className="text-base font-bold font-heading theme-main-text">
+                    Simulated Market Pulse
+                  </h3>
+                </div>
+                <p className="text-xs theme-secondary-text mt-0.5">
+                  Fictional intraday price action · 9:15 AM - 3:30 PM
+                </p>
+              </div>
+
+              {/* Stock Selector Tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
+                {FICTIONAL_STOCKS.slice(0, 3).map((stock) => (
+                  <button
+                    key={stock.symbol}
+                    type="button"
+                    onClick={() => setSelectedStockSymbol(stock.symbol)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold ${
+                      selectedStockSymbol === stock.symbol
+                        ? 'bg-[#0D6847] text-white shadow-xs'
+                        : 'theme-secondary-text hover:theme-main-text'
+                    }`}
+                  >
+                    {stock.symbol}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Quote Header */}
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
+                  ₹{activeStock.currentPrice.toFixed(2)}
+                </div>
+                <div className="text-xs theme-muted-text mt-0.5">
+                  {activeStock.name} · P/E {activeStock.peRatio}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className={`text-sm font-mono font-bold flex items-center justify-end gap-1 ${
+                  activeStock.change >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                }`}>
+                  {activeStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {activeStock.change >= 0 ? '+' : ''}₹{activeStock.change.toFixed(2)} ({activeStock.changePercent}%)
+                </span>
+                <span className="text-[11px] font-mono theme-muted-text">Intraday Simulated</span>
+              </div>
+            </div>
+
+            {/* Glowing SVG Area Chart (Reference 4 Style) */}
+            <div className="w-full h-44 relative pt-2">
+              <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                <defs>
+                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Area Gradient Fill */}
+                <path d={areaD} fill="url(#chartGradient)" />
+
+                {/* Main Glowing Line */}
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Active Latest Point Dot */}
+                {chartPoints.length > 0 && (
+                  <circle
+                    cx={chartPoints[chartPoints.length - 1].x}
+                    cy={chartPoints[chartPoints.length - 1].y}
+                    r="4.5"
+                    fill="#10B981"
+                    stroke="#FFFFFF"
+                    strokeWidth="2"
+                    className="animate-pulse"
+                  />
+                )}
+              </svg>
+
+              {/* Time Axis Labels */}
+              <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text pt-2 border-t theme-border mt-1">
+                <span>09:15 AM</span>
+                <span>11:45 AM</span>
+                <span>01:30 PM</span>
+                <span>03:30 PM</span>
+              </div>
+            </div>
+
+            {/* Direct Action Link to Paper Trading */}
+            <div className="pt-2 flex items-center justify-between">
+              <span className="text-xs theme-secondary-text">
+                Explore order execution & risk management on this security:
+              </span>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('paper_trading')}
+                className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+              >
+                <span>Trade in Paper Lab</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Daily Market Mastery Challenge */}
+          <div className="fintech-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b theme-border pb-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-sm font-bold font-heading theme-main-text">
+                  Daily Market Checkpoint Challenge
+                </h3>
+              </div>
+              <span className="text-[11px] font-mono theme-muted-text">+50 XP Practice</span>
+            </div>
+
+            <p className="text-xs sm:text-sm theme-main-text font-medium leading-relaxed">
+              {dailyChallenge.question}
+            </p>
+
+            <div className="space-y-2">
+              {dailyChallenge.options.map((option, idx) => {
+                const isSelected = challengeAnswer === idx;
+                let optionStyle = 'theme-surface-subtle theme-border hover:border-emerald-500/50';
+
+                if (challengeSubmitted) {
+                  if (option.correct) {
+                    optionStyle = 'bg-emerald-500/10 border-emerald-500 text-emerald-500 font-semibold';
+                  } else if (isSelected && !option.correct) {
+                    optionStyle = 'bg-rose-500/10 border-rose-500 text-rose-500 font-semibold';
+                  } else {
+                    optionStyle = 'theme-surface-subtle opacity-50';
+                  }
+                } else if (isSelected) {
+                  optionStyle = 'border-emerald-500 bg-emerald-500/10';
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleChallengeSelect(idx)}
+                    disabled={challengeSubmitted}
+                    className={`w-full p-3 rounded-xl border text-left text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${optionStyle}`}
+                  >
+                    <span>{option.text}</span>
+                    {challengeSubmitted && option.correct && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {challengeSubmitted && (
+              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs theme-secondary-text leading-relaxed animate-in fade-in duration-200">
+                <strong className="text-emerald-500 font-bold block mb-0.5">Analyst Insight:</strong>
+                {dailyChallenge.explanation}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column (5 cols): Workspace Shortcuts & Milestones */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Workspace Shortcuts Grid */}
+          <div className="fintech-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b theme-border pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-sm font-bold font-heading theme-main-text">
+                  Workspace Shortcuts
+                </h3>
+              </div>
+              <span className="text-[11px] font-mono theme-muted-text">Instant Tools</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {coreTools.map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <div
+                    key={tool.id}
+                    onClick={tool.onClick}
+                    className="p-3.5 rounded-xl border theme-border theme-surface-subtle hover:theme-card hover:border-emerald-500/50 transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#0D6847]/10 text-emerald-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold theme-main-text">{tool.title}</h4>
+                      <p className="text-[11px] theme-secondary-text leading-tight line-clamp-2">
+                        {tool.description}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] font-mono font-bold text-emerald-500 pt-1 border-t theme-border">
+                      <span>{tool.action}</span>
+                      <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Curriculum Milestones Progression Box */}
+          <div className="fintech-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b theme-border pb-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-sm font-bold font-heading theme-main-text">
+                  Curriculum Milestones
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('roadmap')}
+                className="text-xs font-bold text-emerald-500 hover:underline cursor-pointer"
+              >
+                All Stages →
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="theme-secondary-text">Overall Roadmap Completion</span>
+                <span className="font-bold theme-main-text">{progressPercent}%</span>
+              </div>
+
+              <div className="w-full theme-surface-subtle h-2.5 rounded-full overflow-hidden border theme-border">
+                <div
+                  className="bg-[#0D6847] h-full rounded-full transition-all duration-500 shadow-[0_0_10px_#10B981]"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 text-xs font-mono">
+                <div className="p-2.5 rounded-xl theme-surface-subtle border theme-border">
+                  <span className="text-[10px] theme-muted-text uppercase block">Completed</span>
+                  <span className="font-bold theme-main-text text-sm">
+                    {completedModulesCount} of {modules.length} Stages
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl theme-surface-subtle border theme-border">
+                  <span className="text-[10px] theme-muted-text uppercase block">Quiz Accuracy</span>
+                  <span className="font-bold text-emerald-500 text-sm">
+                    {averageQuizScore}% Average
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* =====================================================================
+          SAFETY & INTEGRITY FOOTER BANNER
+         ===================================================================== */}
       <div className="theme-surface-subtle border theme-border rounded-2xl p-4 flex items-center gap-3 text-xs theme-secondary-text">
-        <ShieldCheck className="w-5 h-5 theme-primary-text shrink-0" />
+        <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
         <div>
           <strong className="theme-main-text font-semibold">
             Educational Simulation Environment:
@@ -571,6 +703,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           All quotes, paper trading balances, and mentor responses are strictly designed for risk-free learning and conceptual mastery. No real money or real securities are transacted.
         </div>
       </div>
+
+      {/* Interactive Mascot Pop-up (Dismissible, once per session) */}
+      <MascotWelcomePopup
+        displayName={profile.displayName || 'Learner'}
+        currentStageTitle={`Stage ${currentModule.levelNumber}: ${currentModule.title}`}
+        onOpenMentor={onOpenMentor}
+      />
 
       {/* Locked Section Preview Modal */}
       {selectedLockedModule && (

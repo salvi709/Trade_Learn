@@ -99,23 +99,23 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
         id="lesson-header-card"
         className="theme-card border theme-border rounded-3xl p-6 md:p-8 theme-card-shadow relative overflow-hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2 text-xs font-semibold theme-primary-text uppercase tracking-wider">
-            <BookOpen className="w-4 h-4" />
-            <span>Lesson Reader</span>
-            <span className="theme-muted-text">•</span>
-            <span className="flex items-center gap-1 theme-secondary-text lowercase font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-2 text-xs font-mono theme-muted-text">
+            <BookOpen className="w-4 h-4 theme-primary-text" />
+            <span className="font-bold uppercase tracking-wider theme-primary-text">Curriculum Lesson</span>
+            <span>·</span>
+            <span className="flex items-center gap-1 font-mono">
               <Clock className="w-3.5 h-3.5" /> {lesson.readTimeMinutes} min read
             </span>
           </div>
 
           {/* Mode Switcher */}
-          <div className="flex theme-surface-subtle p-1 rounded-2xl border theme-border">
+          <div className="flex theme-surface-subtle p-1 rounded-xl border theme-border">
             <button
               type="button"
               id="btn-mode-eli15"
               onClick={() => setMode('eli15')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer interactive-btn ${
                 mode === 'eli15'
                   ? 'theme-btn-primary shadow-xs'
                   : 'theme-secondary-text hover:theme-main-text'
@@ -128,7 +128,7 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
               type="button"
               id="btn-mode-deepdive"
               onClick={() => setMode('deep_dive')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer interactive-btn ${
                 mode === 'deep_dive'
                   ? 'theme-btn-primary shadow-xs'
                   : 'theme-secondary-text hover:theme-main-text'
@@ -140,7 +140,7 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
           </div>
         </div>
 
-        <h1 className="text-2xl md:text-3xl font-black font-heading theme-main-text mb-2">
+        <h1 className="text-2xl md:text-3xl font-black font-heading theme-main-text mb-2 tracking-tight">
           {lesson.title}
         </h1>
         <p className="text-xs md:text-sm theme-secondary-text max-w-2xl leading-relaxed">
@@ -148,11 +148,11 @@ export const LessonViewer: React.FC<LessonViewerProps> = ({
         </p>
 
         {isCompleted && (
-          <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 theme-positive-text border border-emerald-500/20 rounded-full text-xs font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5 theme-positive-text" />
-            <span>Completed & Mastered</span>
+          <div className="mt-4 flex items-center gap-2 text-xs font-mono font-semibold theme-positive-text">
+            <CheckCircle2 className="w-4 h-4 theme-positive-text" />
+            <span>Mastered & Completed</span>
             {savedScore !== undefined && (
-              <span className="font-mono ml-1 font-bold">({savedScore}%)</span>
+              <span className="font-mono text-xs theme-muted-text">({savedScore}% score)</span>
             )}
           </div>
         )}

@@ -131,7 +131,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({ analytics, o
             <div
               key={idx}
               onClick={() => onSelectTab(kpi.tabTarget)}
-              className="theme-card border theme-border rounded-xl p-5 hover:border-emerald-500/50 transition-all cursor-pointer group shadow-xs relative overflow-hidden"
+              className="fintech-card p-5 cursor-pointer interactive-card transition-all group"
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-1">

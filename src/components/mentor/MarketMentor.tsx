@@ -596,16 +596,17 @@ export const MarketMentor: React.FC<MentorProps> = ({
                   </div>
 
                   {/* Action buttons on hover / touch / focus */}
+                  {/* Action buttons (always visible and easily accessible) */}
                   {!isEditing && (
-                    <div className="flex items-center gap-0.5 opacity-80 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-1 opacity-90 hover:opacity-100 transition-opacity shrink-0">
                       <button
                         type="button"
                         onClick={(e) => handleStartRename(conv, e)}
-                        className="p-1 rounded-md theme-secondary-text hover:theme-main-text hover:theme-surface-subtle transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg theme-secondary-text hover:theme-main-text hover:theme-surface-subtle transition-colors cursor-pointer"
                         title="Rename conversation"
                         aria-label="Rename conversation"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -614,11 +615,11 @@ export const MarketMentor: React.FC<MentorProps> = ({
                           triggerTactileHaptic(8);
                           setConvToDelete(conv);
                         }}
-                        className="p-1 rounded-md text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
                         title="Delete conversation"
                         aria-label="Delete conversation"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}
@@ -887,7 +888,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                     <div
                       className={`group/msg relative max-w-[85%] md:max-w-[80%] rounded-2xl p-4 leading-relaxed ${
                         isUser
-                          ? 'theme-primary-bg rounded-tr-none shadow-2xs'
+                          ? 'bg-[#0D6847] text-white rounded-tr-none shadow-[0_0_15px_rgba(13,104,71,0.4)] font-medium'
                           : 'theme-surface-subtle border theme-border theme-main-text rounded-tl-none whitespace-pre-line shadow-2xs'
                       }`}
                     >

@@ -119,48 +119,62 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Simulation Disclaimer Banner */}
-      <div className="theme-surface-subtle border theme-border rounded-2xl p-4 flex items-center justify-between text-xs theme-secondary-text">
-        <div className="flex items-center gap-2.5">
-          <ShieldCheck className="w-5 h-5 theme-positive-text shrink-0" />
-          <span>
-            <strong>Educational Paper Trading Simulator:</strong> All data, companies, and ₹1,00,000 capital are strictly fictional for risk-free learning.
-          </span>
+      <div className="theme-surface-subtle border theme-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs theme-secondary-text">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg theme-card border theme-border flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4 theme-positive-text" />
+          </div>
+          <div>
+            <span className="font-semibold theme-main-text">Educational Paper Trading Simulator</span>
+            <p className="text-[11px] theme-muted-text mt-0.5">
+              Live-calculated fictional market universe with ₹1,00,000 virtual capital. Real market mechanics with zero financial risk.
+            </p>
+          </div>
         </div>
-        <span className="font-mono theme-card px-2.5 py-0.5 rounded-full border theme-border text-[11px] font-bold theme-primary-text">
-          Fictional Universe
-        </span>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 font-mono text-[11px]">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="theme-secondary-text font-medium">Virtual Exchange Active</span>
+        </div>
       </div>
 
-      {/* Portfolio Balance Header Cards */}
+      {/* Portfolio Balance Header Bar */}
       <div
         data-tour="paper-trading-balance"
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="theme-card border theme-border rounded-2xl p-4 sm:p-5 shadow-2xs grid grid-cols-2 lg:grid-cols-4 gap-4 divide-y lg:divide-y-0 lg:divide-x theme-border"
       >
-        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
-          <span className="text-xs theme-muted-text font-medium block mb-1">Total Net Worth</span>
-          <span className="text-lg md:text-xl font-bold font-mono theme-main-text">
+        <div className="pt-2 lg:pt-0 lg:px-3 first:pt-0 first:px-0">
+          <span className="text-[11px] font-mono uppercase tracking-wider theme-muted-text block mb-1">Total Net Worth</span>
+          <div className="text-xl sm:text-2xl font-bold font-mono theme-main-text tracking-tight">
             ₹{totalPortfolioNetWorth.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </span>
+          </div>
+          <span className="text-[11px] theme-muted-text mt-0.5 block">Cash + stock value</span>
         </div>
 
-        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
-          <span className="text-xs theme-muted-text font-medium block mb-1">Virtual Cash Balance</span>
-          <span className="text-lg md:text-xl font-bold font-mono theme-primary-text">
+        <div className="pt-2 lg:pt-0 lg:px-4">
+          <span className="text-[11px] font-mono uppercase tracking-wider theme-muted-text block mb-1">Virtual Cash</span>
+          <div className="text-xl sm:text-2xl font-bold font-mono theme-primary-text tracking-tight">
             ₹{portfolio.virtualCash.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </span>
+          </div>
+          <span className="text-[11px] theme-muted-text mt-0.5 block">Available liquidity</span>
         </div>
 
-        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
-          <span className="text-xs theme-muted-text font-medium block mb-1">Holdings Value</span>
-          <span className="text-lg md:text-xl font-bold font-mono theme-main-text">
+        <div className="pt-2 lg:pt-0 lg:px-4">
+          <span className="text-[11px] font-mono uppercase tracking-wider theme-muted-text block mb-1">Holdings Value</span>
+          <div className="text-xl sm:text-2xl font-bold font-mono theme-main-text tracking-tight">
             ₹{totalEquityHoldingsValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </div>
+          <span className="text-[11px] theme-muted-text mt-0.5 block">
+            {Object.keys(portfolio.positions).length} active {Object.keys(portfolio.positions).length === 1 ? 'position' : 'positions'}
           </span>
         </div>
 
-        <div className="theme-card interactive-card border theme-border rounded-2xl p-4 shadow-2xs">
-          <span className="text-xs theme-muted-text font-medium block mb-1">Unrealized P&L</span>
-          <span className={`text-lg md:text-xl font-bold font-mono ${totalUnrealizedPnL >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
+        <div className="pt-2 lg:pt-0 lg:px-4">
+          <span className="text-[11px] font-mono uppercase tracking-wider theme-muted-text block mb-1">Unrealized P&L</span>
+          <div className={`text-xl sm:text-2xl font-bold font-mono tracking-tight ${totalUnrealizedPnL >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
             {totalUnrealizedPnL >= 0 ? '+' : ''}₹{totalUnrealizedPnL.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </div>
+          <span className="text-[11px] theme-muted-text mt-0.5 block">
+            {totalEquityHoldingsValue > 0 ? `${((totalUnrealizedPnL / (totalEquityHoldingsValue - totalUnrealizedPnL || 1)) * 100).toFixed(2)}% return` : 'No active exposure'}
           </span>
         </div>
       </div>
@@ -198,12 +212,12 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
           </div>
 
           {/* Active Stock Details Card */}
-          <div className="theme-card border theme-border rounded-3xl p-6 space-y-6 shadow-sm">
+          <div className="fintech-card p-6 space-y-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b theme-border pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-bold theme-main-text font-heading">{selectedStock.name}</h3>
-                  <span className="text-xs font-mono theme-surface-subtle theme-secondary-text px-2 py-0.5 rounded font-bold border theme-border">
+                  <span className="text-xs font-mono bg-[#0D6847]/15 text-emerald-500 px-2 py-0.5 rounded font-bold border border-emerald-500/30">
                     {selectedStock.symbol}
                   </span>
                 </div>
@@ -211,11 +225,11 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
               </div>
 
               <div className="text-right">
-                <div className="text-2xl font-bold font-mono theme-main-text">
+                <div className="text-2xl font-bold font-mono theme-main-text tracking-tight">
                   ₹{selectedStock.currentPrice.toFixed(2)}
                 </div>
                 <div className={`text-xs font-mono font-bold flex items-center justify-end gap-1 ${
-                  selectedStock.change >= 0 ? 'theme-positive-text' : 'theme-negative-text'
+                  selectedStock.change >= 0 ? 'text-emerald-500' : 'text-rose-500'
                 }`}>
                   {selectedStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                   {selectedStock.change >= 0 ? '+' : ''}₹{selectedStock.change.toFixed(2)} ({selectedStock.changePercent}%)
@@ -223,33 +237,82 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
               </div>
             </div>
 
-            {/* Price Chart Simulation */}
+            {/* Price Chart Simulation with SVG Glowing Curve */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs theme-secondary-text font-semibold">Today's Simulated Intraday Trend</span>
-                <span className="text-[11px] theme-muted-text font-mono">9:15 AM - 3:30 PM</span>
+                <span className="text-xs font-mono theme-secondary-text font-semibold uppercase tracking-wider">
+                  Today's Simulated Intraday Trend
+                </span>
+                <span className="text-[11px] theme-muted-text font-mono">9:15 AM - 3:30 PM IST</span>
               </div>
-              <div className="theme-surface-subtle p-4 rounded-2xl border theme-border h-48 flex items-end justify-between gap-2">
-                {selectedStock.priceHistory.map((point, idx) => {
-                  const minP = Math.min(...selectedStock.priceHistory.map(p => p.price));
-                  const maxP = Math.max(...selectedStock.priceHistory.map(p => p.price));
-                  const range = maxP - minP || 1;
-                  const heightPercent = 20 + ((point.price - minP) / range) * 70;
 
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
-                      {/* Tooltip on hover */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-2 theme-surface-elevated text-[10px] font-mono theme-main-text px-2 py-1 rounded border theme-border shadow-xl pointer-events-none whitespace-nowrap z-10">
-                        {point.time} • ₹{point.price.toFixed(2)}
-                      </div>
-                      <div 
-                        className="w-full theme-primary-bg opacity-80 hover:opacity-100 rounded-t transition-all"
-                        style={{ height: `${heightPercent}%` }}
-                      ></div>
-                      <span className="text-[10px] theme-muted-text font-mono">{point.time}</span>
-                    </div>
-                  );
-                })}
+              {/* Glowing SVG Area Curve */}
+              <div className="w-full h-44 theme-surface-subtle p-3 rounded-2xl border theme-border relative overflow-hidden">
+                <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                  <defs>
+                    <linearGradient id="paperChartGlow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Area fill */}
+                  <path
+                    d={`${selectedStock.priceHistory.reduce((acc, pt, i) => {
+                      const minP = Math.min(...selectedStock.priceHistory.map(p => p.price));
+                      const maxP = Math.max(...selectedStock.priceHistory.map(p => p.price));
+                      const range = maxP - minP || 1;
+                      const x = (i / (selectedStock.priceHistory.length - 1)) * 300;
+                      const y = 85 - ((pt.price - minP) / range) * 65;
+                      return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                    }, '')} L 300 95 L 0 95 Z`}
+                    fill="url(#paperChartGlow)"
+                  />
+
+                  {/* Glowing line */}
+                  <path
+                    d={selectedStock.priceHistory.reduce((acc, pt, i) => {
+                      const minP = Math.min(...selectedStock.priceHistory.map(p => p.price));
+                      const maxP = Math.max(...selectedStock.priceHistory.map(p => p.price));
+                      const range = maxP - minP || 1;
+                      const x = (i / (selectedStock.priceHistory.length - 1)) * 300;
+                      const y = 85 - ((pt.price - minP) / range) * 65;
+                      return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                    }, '')}
+                    fill="none"
+                    stroke="#10B981"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Points */}
+                  {selectedStock.priceHistory.map((pt, i) => {
+                    const minP = Math.min(...selectedStock.priceHistory.map(p => p.price));
+                    const maxP = Math.max(...selectedStock.priceHistory.map(p => p.price));
+                    const range = maxP - minP || 1;
+                    const x = (i / (selectedStock.priceHistory.length - 1)) * 300;
+                    const y = 85 - ((pt.price - minP) / range) * 65;
+                    return (
+                      <circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r="3.5"
+                        fill="#10B981"
+                        stroke="#000000"
+                        strokeWidth="1.5"
+                      />
+                    );
+                  })}
+                </svg>
+
+                {/* Micro time labels */}
+                <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text mt-1 border-t theme-border pt-1">
+                  {selectedStock.priceHistory.map((p, idx) => (
+                    <span key={idx}>{p.time}</span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -280,10 +343,10 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
           <form
             onSubmit={handleSubmitOrder}
             data-tour="paper-trading-order-ticket"
-            className="theme-card border theme-border rounded-3xl p-6 space-y-5 shadow-sm"
+            className="fintech-card p-6 space-y-5"
           >
             <h3 className="text-base font-bold theme-main-text flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 theme-primary-text" />
+              <ShoppingBag className="w-4 h-4 text-emerald-500" />
               Simulated Order Ticket
             </h3>
 
@@ -463,9 +526,9 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
       </div>
 
       {/* Open Positions Table */}
-      <div className="theme-card border theme-border rounded-3xl p-6 space-y-4 shadow-sm">
-        <h3 className="text-lg font-bold theme-main-text flex items-center gap-2">
-          <PieChart className="w-5 h-5 theme-primary-text" />
+      <div className="fintech-card p-6 space-y-4">
+        <h3 className="text-base font-bold theme-main-text flex items-center gap-2">
+          <PieChart className="w-4 h-4 text-emerald-500" />
           Open Simulated Portfolio Positions
         </h3>
 
@@ -502,7 +565,7 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
                       <td className="p-3 theme-secondary-text">₹{pos.averagePrice.toFixed(2)}</td>
                       <td className="p-3 theme-main-text font-bold">₹{curPrice.toFixed(2)}</td>
                       <td className="p-3 theme-secondary-text">₹{currentVal.toFixed(2)}</td>
-                      <td className={`p-3 font-bold ${pnl >= 0 ? 'theme-positive-text' : 'theme-negative-text'}`}>
+                      <td className={`p-3 font-bold ${pnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {pnl >= 0 ? '+' : ''}₹{pnl.toFixed(2)} ({pnlPct.toFixed(1)}%)
                       </td>
                       <td className="p-3 text-right font-sans">
@@ -528,9 +591,9 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
       </div>
 
       {/* Trade History Log */}
-      <div className="theme-card border theme-border rounded-3xl p-6 space-y-4 shadow-sm">
-        <h3 className="text-lg font-bold theme-main-text flex items-center gap-2">
-          <Clock className="w-5 h-5 theme-primary-text" />
+      <div className="fintech-card p-6 space-y-4">
+        <h3 className="text-base font-bold theme-main-text flex items-center gap-2">
+          <Clock className="w-4 h-4 text-emerald-500" />
           Recent Paper Trade Execution History
         </h3>
 

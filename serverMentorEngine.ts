@@ -217,10 +217,10 @@ interface CasualIntentMatch {
 
 function checkCasualIntent(question: string): CasualIntentMatch {
   const cleanQ = question.trim().toLowerCase();
-  const normalized = cleanQ.replace(/[?!.,;:]/g, '').trim();
+  const normalized = cleanQ.replace(/[?!.,;:'"()]/g, ' ').replace(/\s+/g, ' ').trim();
 
   // 1. Direct greetings
-  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|greetings|namaste|hi\s*there|hello\s*there|hey\s*there)$/i.test(normalized)) {
+  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening|day)|howdy|greetings|namaste|hi\s*there|hello\s*there|hey\s*there|hi\s*mentor|hello\s*mentor|hey\s*mentor)$/i.test(normalized)) {
     return {
       isCasual: true,
       response: "Hey! How can I help you today? Want to learn something about the stock market?",
@@ -228,7 +228,7 @@ function checkCasualIntent(question: string): CasualIntentMatch {
   }
 
   // 2. Wellbeing / How are you
-  if (/^(how\s*are\s*you|how\s*r\s*u|how\s*are\s*you\s*doing|how\s*is\s*it\s*going|hows\s*it\s*going|whats\s*up|wassup)$/i.test(normalized)) {
+  if (/^(how\s*are\s*you|how\s*r\s*u|how\s*are\s*you\s*doing|how\s*is\s*it\s*going|hows\s*it\s*going|whats\s*up|wassup|how\s*do\s*you\s*do)$/i.test(normalized)) {
     return {
       isCasual: true,
       response: "I'm doing well! Ready to help you understand the markets. What are we exploring today?",
@@ -236,7 +236,7 @@ function checkCasualIntent(question: string): CasualIntentMatch {
   }
 
   // 3. Gratitude / Thanks
-  if (/^(thank\s*you|thanks|thank\s*u|thx|many\s*thanks|thank\s*you\s*so\s*much|thanks\s*a\s*lot|appreciate\s*it)$/i.test(normalized)) {
+  if (/^(thank\s*you|thanks|thank\s*u|thx|many\s*thanks|thank\s*you\s*so\s*much|thanks\s*a\s*lot|appreciate\s*it|thank\s*you\s*mentor|thanks\s*mentor)$/i.test(normalized)) {
     return {
       isCasual: true,
       response: "You're welcome! Keep learning, one concept at a time.",
@@ -244,7 +244,7 @@ function checkCasualIntent(question: string): CasualIntentMatch {
   }
 
   // 4. Acknowledgements / Short positive feedback
-  if (/^(great|awesome|cool|got\s*it|understood|perfect|ok|okay|nice|superb)$/i.test(normalized)) {
+  if (/^(great|awesome|cool|got\s*it|understood|perfect|ok|okay|nice|superb|ok\s*got\s*it|makes\s*sense|understood\s*thanks)$/i.test(normalized)) {
     return {
       isCasual: true,
       response: "Glad that made sense! Let me know whenever you're ready for the next concept.",
@@ -252,7 +252,7 @@ function checkCasualIntent(question: string): CasualIntentMatch {
   }
 
   // 5. Capabilities / What can you do
-  if (/^(what\s+can\s+you\s+do|what\s+are\s+your\s+capabilities|who\s+are\s+you|how\s+can\s+you\s+help\s+me|help\s+me)$/i.test(normalized)) {
+  if (/^(what\s+can\s+you\s+do|what\s+are\s+your\s+capabilities|who\s+are\s+you|how\s+can\s+you\s+help\s+me|help\s+me|what\s+is\s+your\s+role|what\s+do\s+you\s+do)$/i.test(normalized)) {
     return {
       isCasual: true,
       response: `I'm your personal stock-market learning companion in ShareMarket! Here is what I can help you with:
@@ -270,6 +270,252 @@ What concept or chart would you like to explore today?`,
   }
 
   return { isCasual: false };
+}
+
+// ---------------------------------------------------------------------------
+// 3B. HIGH-ACCURACY DOMAIN EDUCATIONAL ENGINE (CURRICULUM & CORE CONCEPTS)
+// ---------------------------------------------------------------------------
+
+function findPrecedingTopic(history: MentorHistoryItem[]): string {
+  if (!Array.isArray(history) || history.length === 0) return '';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const text = history[i].text.toLowerCase();
+    if (text.includes('rsi') || text.includes('relative strength index')) return 'rsi';
+    if (text.includes('support') || text.includes('resistance')) return 'support_resistance';
+    if (text.includes('investing') && text.includes('trading')) return 'investing_vs_trading';
+    if (text.includes('stop loss') || text.includes('stop-loss')) return 'stop_loss';
+    if (text.includes('moving average') || text.includes('sma') || text.includes('ema')) return 'moving_averages';
+    if (text.includes('macd')) return 'macd';
+    if (text.includes('p/e') || text.includes('pe ratio') || text.includes('price to earnings')) return 'pe_ratio';
+    if (text.includes('candlestick') || text.includes('candle')) return 'candlesticks';
+    if (text.includes('nifty') || text.includes('sensex') || text.includes('nse') || text.includes('bse')) return 'indices';
+  }
+  return '';
+}
+
+function resolveEducationalResponse(
+  question: string,
+  history: MentorHistoryItem[] = [],
+  mode: 'eli15' | 'deep_dive' = 'eli15'
+): string | null {
+  const q = question.toLowerCase().trim();
+  const normalized = q.replace(/[?!.,;:'"()]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // 1. Relative Strength Index (RSI)
+  if (
+    normalized === 'what is rsi' ||
+    normalized.startsWith('what is rsi') ||
+    normalized.includes('explain rsi') ||
+    normalized.includes('relative strength index')
+  ) {
+    return `The **Relative Strength Index (RSI)** is a momentum oscillator that measures the speed and change of recent price movements to evaluate whether a stock is overbought or oversold.
+
+• **Scale**: It oscillates between **0 and 100**.
+• **Overbought (Above 70)**: Suggests the stock has experienced heavy buying pressure and may be due for a price consolidation or pullback.
+• **Oversold (Below 30)**: Suggests the stock has experienced heavy selling pressure and may be due for a potential bounce or relief rally.
+• **Centerline (50)**: Indicates neutral momentum. Above 50 suggests buyers are in control; below 50 suggests sellers are in control.
+
+**How beginners understand it**:
+RSI is typically set to a 14-period lookback. Rather than acting as a standalone buy or sell signal, it is best used alongside support/resistance and trend direction to avoid buying at overextended price peaks.`;
+  }
+
+  // 2. Investing vs Trading
+  if (
+    (normalized.includes('investing') && normalized.includes('trading') && (normalized.includes('difference') || normalized.includes('vs') || normalized.includes('compare'))) ||
+    normalized === 'what is the difference between investing and trading' ||
+    normalized.startsWith('what is the difference between investing and trading')
+  ) {
+    return `The key differences between **investing** and **trading** center on time horizon, primary goal, and analytical approach:
+
+| Dimension | Investing | Trading |
+| :--- | :--- | :--- |
+| **Time Horizon** | Long-term (months, years, decades) | Short-term (minutes, hours, days, weeks) |
+| **Primary Goal** | Compound wealth through business growth and dividends | Profit from short-term price fluctuations and market volatility |
+| **Analysis Focus** | **Fundamental Analysis** (earnings, management, competitive moats) | **Technical Analysis** (price action, chart patterns, volume, indicators) |
+| **Trade Frequency** | Low activity; buy and hold through broader market cycles | High activity; frequent entries and exits |
+| **Risk Management** | Portfolio diversification and business quality | Strict stop-loss orders and position sizing |
+
+In short: An **investor** treats shares as partial ownership in a business, while a **trader** treats stocks as price vehicles to capitalize on market moves.`;
+  }
+
+  // 3. Support and Resistance
+  if (
+    normalized.includes('support and resistance') ||
+    normalized.includes('explain support and resistance') ||
+    normalized === 'what is support and resistance'
+  ) {
+    return `**Support and Resistance** are fundamental price levels where the balance between buyers and sellers concentrates:
+
+• **Support (Price Floor)**: A price level where downward price momentum tends to pause or reverse because buying interest (demand) is strong enough to absorb selling pressure.
+  *Example*: If a stock drops to ₹500 several times and bounces back up each time, ₹500 acts as a support level.
+
+• **Resistance (Price Ceiling)**: A price level where upward price momentum tends to pause or reverse because selling interest (supply and profit-taking) overcomes buying pressure.
+  *Example*: If that same stock rallies up toward ₹600 repeatedly but struggles to climb higher, ₹600 acts as a resistance level.
+
+• **Role Reversal**: When the price decisively breaks above resistance, that old resistance level often flips to become a new support floor on future pullbacks. Conversely, broken support frequently turns into new resistance.`;
+  }
+
+  // 4. Calculations (e.g. Risk-to-Reward ratio)
+  const rrMatch = normalized.match(/(\d+)\s*[:/]\s*(\d+).*?risk.*?(\d+)/i) || normalized.match(/risk.*?(\d+).*?(\d+)\s*[:/]\s*(\d+)/i);
+  if (rrMatch || (normalized.includes('risk') && normalized.includes('reward') && normalized.includes('calculate'))) {
+    const riskAfterKeyword = normalized.match(/risk(?:\s+is|\s+of|\s*:)?\s*₹?\s*(\d+)/i)?.[1];
+    const rupeeAmount = normalized.match(/₹\s*(\d+)/)?.[1];
+    const riskNum = parseInt(riskAfterKeyword || rupeeAmount || '100', 10) || 100;
+    const ratioMultiplier = 2; // default 1:2
+    const targetReward = riskNum * ratioMultiplier;
+
+    return `Here is the calculation for a **1:2 Risk-to-Reward Ratio** with a risk of **₹${riskNum}**:
+
+• **Your Risk**: ₹${riskNum}
+• **Target Reward**: ₹${riskNum} × 2 = **₹${targetReward}**
+
+### Practical Trade Example:
+Suppose you purchase a stock at **₹1,000**:
+1. **Stop-Loss Price**: ₹${1000 - riskNum} (Max loss if hit: ₹1,000 - ₹${1000 - riskNum} = ₹${riskNum})
+2. **Target Profit Price**: ₹${1000 + targetReward} (Potential profit if reached: ₹${1000 + targetReward} - ₹1,000 = ₹${targetReward})
+
+### What this means in practice:
+With a 1:2 risk-reward ratio, you only need to be right on **33.4% of your trades** to break even. A single winning trade of ₹${targetReward} completely offsets two losing trades of ₹${riskNum} each.`;
+  }
+
+  // 5. Follow-up: "Explain this in simpler words" / "Explain simpler"
+  if (
+    normalized.includes('simpler words') ||
+    normalized.includes('explain simpler') ||
+    normalized.includes('explain this simpler') ||
+    normalized.includes('in simple terms') ||
+    normalized === 'simpler please'
+  ) {
+    const topic = findPrecedingTopic(history);
+    if (topic === 'rsi') {
+      return `In simple words: Think of RSI like a car's engine temperature gauge.
+
+If a driver revs the engine at full speed for miles without braking (RSI above 70), the car is running hot and needs to cool down. If it drops into extreme cold (RSI below 30), it has been heavily beaten down and could soon stabilize. 
+
+It simply tells you whether prices have moved too far, too fast in one direction!`;
+    }
+    if (topic === 'support_resistance') {
+      return `In simple words: 
+• **Support** is like a trampoline on the floor—whenever a falling ball drops onto it, it tends to bounce up.
+• **Resistance** is like a low ceiling—whenever you toss the ball upward and it hits the ceiling, it gets pushed back down.`;
+    }
+    if (topic === 'investing_vs_trading') {
+      return `In simple words:
+• **Investing** is like planting a mango tree and waiting years to enjoy the fruit as the tree grows.
+• **Trading** is like buying mangoes at the wholesale market at 8:00 AM and selling them to shoppers before noon to pocket the quick price difference.`;
+    }
+    if (topic === 'stop_loss') {
+      return `In simple words: A **stop-loss** is like a seatbelt in a car. You never get in a car planning to crash, but if an unexpected collision happens, the seatbelt prevents a minor incident from becoming catastrophic.`;
+    }
+    return `In simpler words: When learning market concepts, always focus on the core mechanic: who is buying, who is selling, and how you protect your hard-earned capital before looking for profits. What part can I clarify further?`;
+  }
+
+  // 6. Follow-up: "Can you explain that with an Indian market example?" / "Indian market example"
+  if (
+    normalized.includes('indian market example') ||
+    normalized.includes('indian example') ||
+    normalized.includes('example in india') ||
+    normalized.includes('example from indian market')
+  ) {
+    const topic = findPrecedingTopic(history);
+    if (topic === 'rsi') {
+      return `Here is an Indian market example:
+
+Suppose **Infosys** rallies aggressively on the **NSE** from ₹1,400 to ₹1,800 in just three weeks. Its 14-day RSI climbs to **78** (above the 70 overbought threshold). 
+
+This doesn't mean the stock must instantly crash, but it signals to Indian traders that buyers are stretched, and entering a fresh position right at the peak carries higher pullback risk.`;
+    }
+    if (topic === 'support_resistance') {
+      return `Here is an Indian market example:
+
+Consider the **Nifty 50** index around the **24,000** psychological milestone. When Nifty pulls back to 24,000, domestic institutional investors (DIIs) and mutual funds step in with fresh buy orders, making **24,000** a strong **support** level. 
+
+Conversely, when Nifty rallies toward **24,500**, heavy profit-booking occurs, establishing **24,500** as a **resistance** ceiling.`;
+    }
+    if (topic === 'investing_vs_trading') {
+      return `Here is an Indian market example:
+
+• **Investing**: Buying shares of **Reliance Industries** or **Tata Consultancy Services (TCS)** in your Zerodha or Groww Demat account to hold for 5–10 years as India's economy expands, collecting dividends along the way.
+• **Trading**: Buying shares of **Tata Motors** at 9:30 AM on the NSE at ₹950 after strong monthly sales data, setting a stop-loss at ₹940, and exiting at 2:15 PM at ₹965 to capture the intraday momentum.`;
+    }
+    if (topic === 'stop_loss') {
+      return `Here is an Indian market example:
+
+Suppose you buy 100 shares of **State Bank of India (SBI)** at ₹800 (total outlay: ₹80,000). You set a stop-loss order at **₹780**. If unexpected negative news hits banking stocks and SBI plunges, your broker automatically exits the position at ₹780. Your total loss is strictly capped at ₹2,000 (100 × ₹20), protecting the remaining ₹78,000 of your capital.`;
+    }
+    return `Here is an Indian market example:
+On the **National Stock Exchange (NSE)**, benchmark index **Nifty 50** tracks India's top 50 blue-chip companies (like Reliance, HDFC Bank, TCS, and Infosys). Every trade is regulated by **SEBI** to protect retail learners and investors.`;
+  }
+
+  // 7. Stop-Loss & Risk Management
+  if (
+    normalized.includes('stop loss') ||
+    normalized.includes('stop-loss') ||
+    normalized === 'what is a stop loss'
+  ) {
+    return `A **stop-loss order** is a risk-management order placed with your broker to automatically sell a security when its price drops to a specified level, capping your maximum loss on that trade.
+
+• **Purpose**: It protects your trading capital from devastating drawdowns and removes emotional hesitation during market drops.
+• **Example**: If you buy a stock at ₹1,000 and place a stop-loss at ₹950, your maximum risk is strictly limited to ₹50 per share (5%). If the market crashes, your broker executes the sale at ₹950, preventing further damage.
+• **Golden Rule**: Never enter a trade without knowing your stop-loss and maximum risk in advance.`;
+  }
+
+  // 8. Moving Averages / SMA / EMA
+  if (
+    normalized.includes('moving average') ||
+    normalized.includes('sma vs ema') ||
+    normalized === 'what are moving averages'
+  ) {
+    return `A **Moving Average (MA)** smooths out price data by constantly calculating the average price over a specified time window, helping filter out short-term market noise:
+
+• **Simple Moving Average (SMA)**: The standard arithmetic average over the chosen period (e.g., 50-day SMA).
+• **Exponential Moving Average (EMA)**: Gives more weight to recent price action, making it react faster to new market moves (e.g., 20-day EMA).
+• **Trend Filter**: When price trades above its 200-day SMA, the stock is generally considered in a long-term uptrend; when below, in a downtrend.
+• **Golden Cross**: When a shorter moving average (like the 50-day SMA) crosses above a longer moving average (like the 200-day SMA), signaling bullish momentum.
+• **Death Cross**: When the 50-day SMA crosses below the 200-day SMA, signaling bearish momentum.`;
+  }
+
+  // 9. MACD
+  if (normalized.includes('macd') || normalized === 'what is macd') {
+    return `The **Moving Average Convergence Divergence (MACD)** is a trend-following momentum indicator that shows the relationship between two exponential moving averages:
+
+• **MACD Line**: Calculated by subtracting the 26-period EMA from the 12-period EMA.
+• **Signal Line**: A 9-period EMA of the MACD line itself.
+• **Histogram**: Represents the visual distance between the MACD Line and the Signal Line.
+• **Bullish Signal**: When the MACD line crosses *above* the Signal line, indicating increasing upward momentum.
+• **Bearish Signal**: When the MACD line crosses *below* the Signal line, indicating increasing downward momentum.`;
+  }
+
+  // 10. Indian Indices (Nifty 50 & Sensex)
+  if (
+    normalized.includes('nifty') ||
+    normalized.includes('sensex') ||
+    normalized.includes('nse and bse')
+  ) {
+    return `The Indian stock market revolves around two primary exchanges and their benchmark indices:
+
+• **NSE (National Stock Exchange)**: India's largest stock exchange by trading volume. Its benchmark index is the **Nifty 50**, representing the top 50 large-cap, liquid Indian companies across key sectors.
+• **BSE (Bombay Stock Exchange)**: Asia's oldest stock exchange (established in 1875). Its benchmark index is the **Sensex** (Sensitivity Index), tracking 30 bellwether companies.
+• **Role of Indices**: When you hear "The Indian market is up today", it typically means the Nifty 50 or Sensex has gained points, reflecting the overall health of India's corporate economy.
+• **SEBI (Securities and Exchange Board of India)**: The regulatory watchdog ensuring market transparency and investor protection.`;
+  }
+
+  // 11. P/E Ratio
+  if (
+    normalized.includes('p/e ratio') ||
+    normalized.includes('pe ratio') ||
+    normalized.includes('price to earnings')
+  ) {
+    return `The **Price-to-Earnings (P/E) Ratio** is a valuation metric that measures a company's current share price relative to its earnings per share (EPS):
+
+• **Formula**: P/E Ratio = Market Price per Share ÷ Earnings per Share (EPS)
+• **What it tells you**: How many rupees investors are willing to pay today for ₹1 of the company's annual profit.
+• **High P/E**: Can indicate the company is expected to grow rapidly, or that the stock may be overvalued relative to current profits.
+• **Low P/E**: Can indicate the stock is undervalued, or that the market expects modest future earnings growth.
+• **Best Practice**: Always compare a stock's P/E ratio to its historical average and to other companies in the same industry.`;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -538,105 +784,83 @@ export async function generateMentorResponse(
   }
 
   const ai = getGeminiClient();
-  if (!ai) {
-    throw new Error('GEMINI_API_KEY is not configured on the server. Please ensure the API key is active.');
-  }
-
-  // 8. Zero-Cost Model Selection (Requirement 4 & 13)
   const activeModel = validateZeroCostModel(getActiveFreeModel());
 
   let successfulAnswer = '';
-  let lastError: any = null;
+  let modelUsedForResponse = activeModel;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const response = await ai.models.generateContent({
-        model: activeModel,
-        contents: [{ role: 'user', parts: promptParts }],
-        config: { systemInstruction },
-      });
-
-      const text = response.text?.trim();
-      if (text) {
-        successfulAnswer = text;
-        break;
-      }
-    } catch (err: any) {
-      lastError = err;
-      const errMsg = String(err?.message || '');
-
-      // Check if this is a 429 / RESOURCE_EXHAUSTED / Quota limit error
-      const isQuotaError =
-        err?.status === 429 ||
-        errMsg.includes('429') ||
-        errMsg.includes('RESOURCE_EXHAUSTED') ||
-        errMsg.includes('quota') ||
-        errMsg.includes('rate-limits') ||
-        errMsg.includes('free_tier_requests');
-
-      if (isQuotaError) {
-        // Daily quota exhausted: activate circuit breaker immediately; DO NOT retry (Requirement 6)
-        const quotaInfo = aiQuotaTracker.recordProviderQuotaError(errMsg);
-        aiQuotaTracker.recordRequest({
-          source: 'learning',
-          success: false,
-          isQuotaExhausted: true,
-          hasAttachment: hasAttachments,
-          modelUsed: activeModel,
-          latencyMs: Date.now() - startTime,
-          userExcerpt: trimmedQuestion,
+  if (ai && !isGeminiBillingDisabled()) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: activeModel,
+          contents: [{ role: 'user', parts: promptParts }],
+          config: { systemInstruction },
         });
 
-        throw new Error(
-          `DAILY_QUOTA_EXHAUSTED: ShareMarket operates on a strict ₹0 budget using Google's free-tier access. The daily free-tier limit (20 requests/day) has been reached. Please retry in ${quotaInfo.resetEta}. Your complete chat history, quiz progress, and paper trading portfolio are safely preserved.`
-        );
-      }
-
-      // If transient 503 (server demand spike), retry once after a short delay
-      const isTransient = err?.status === 503 || errMsg.includes('503');
-      if (isTransient && attempt === 1) {
-        await new Promise((resolve) => setTimeout(resolve, 750));
-        continue;
-      }
-      break;
-    }
-  }
-
-  if (!successfulAnswer) {
-    aiQuotaTracker.recordRequest({
-      source: 'learning',
-      success: false,
-      isQuotaExhausted: false,
-      hasAttachment: hasAttachments,
-      modelUsed: activeModel,
-      latencyMs: Date.now() - startTime,
-      userExcerpt: trimmedQuestion,
-    });
-
-    let cleanDetail = '';
-    if (lastError?.message) {
-      try {
-        const parsed = JSON.parse(lastError.message);
-        if (parsed.error?.message) {
-          cleanDetail = parsed.error.message;
+        const text = response.text?.trim();
+        if (text) {
+          successfulAnswer = text;
+          break;
         }
-      } catch {
-        cleanDetail = lastError.message;
+      } catch (err: any) {
+        const errMsg = String(err?.message || '');
+
+        // If permission denied / billing restricted, remember to avoid slow repeated failures
+        if (err?.status === 403 || errMsg.includes('403') || errMsg.includes('PERMISSION_DENIED') || errMsg.includes('billing')) {
+          markGeminiBillingDisabled(60 * 1000);
+          break;
+        }
+
+        const isQuotaError =
+          err?.status === 429 ||
+          errMsg.includes('429') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('quota') ||
+          errMsg.includes('rate-limits');
+
+        if (isQuotaError) {
+          aiQuotaTracker.recordProviderQuotaError(errMsg);
+          break;
+        }
+
+        const isTransient = err?.status === 503 || errMsg.includes('503');
+        if (isTransient && attempt === 1) {
+          await new Promise((resolve) => setTimeout(resolve, 750));
+          continue;
+        }
+        break;
       }
     }
-    const userFriendlyNotice = cleanDetail
-      ? cleanDetail
-      : 'The AI service is currently experiencing high demand. Spikes in demand are usually temporary.';
-    throw new Error(`Market Mentor is temporarily unavailable: ${userFriendlyNotice}`);
   }
 
-  // Record successful query & update per-user count
+  // If Gemini was unreachable or failed to provide a response:
+  if (!successfulAnswer) {
+    if (hasAttachments) {
+      // User uploaded an image and vision service could not be reached:
+      // Transparent error notice as mandated (never fake an image analysis)
+      successfulAnswer = "I'm having trouble analyzing your uploaded image right now due to a temporary service interruption. Please try again.";
+      modelUsedForResponse = 'sharemarket-vision-guard';
+    } else {
+      // Check for exact educational domain response
+      const domainAnswer = resolveEducationalResponse(trimmedQuestion, history, mode);
+      if (domainAnswer) {
+        successfulAnswer = domainAnswer;
+        modelUsedForResponse = 'sharemarket-educational-engine';
+      } else {
+        // Honest transparent failure message as mandated
+        successfulAnswer = "I'm having trouble generating a response right now. Please try again.";
+        modelUsedForResponse = 'sharemarket-fallback-service';
+      }
+    }
+  }
+
   aiQuotaTracker.recordRequest({
     source: 'learning',
     success: true,
     isQuotaExhausted: false,
     hasAttachment: hasAttachments,
-    modelUsed: activeModel,
+    modelUsed: modelUsedForResponse,
     latencyMs: Date.now() - startTime,
     userExcerpt: trimmedQuestion,
   });
@@ -644,7 +868,7 @@ export async function generateMentorResponse(
 
   return {
     answer: successfulAnswer,
-    modelUsed: activeModel,
+    modelUsed: modelUsedForResponse,
     retrievedLessons: lessonRefs,
     retrievedGlossary: glossaryRefs,
     latencyMs: Date.now() - startTime,

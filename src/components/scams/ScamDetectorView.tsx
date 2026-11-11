@@ -26,28 +26,30 @@ export const ScamDetectorView: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* Switcher Tabs */}
-      <div className="flex theme-surface-subtle p-1.5 rounded-2xl border theme-border w-fit mx-auto">
+      <div className="flex theme-surface-subtle p-1 rounded-2xl border theme-border w-fit mx-auto">
         <button
           type="button"
           onClick={() => setActiveTab('SCAMS')}
-          className={`px-6 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
             activeTab === 'SCAMS'
-              ? 'theme-primary-bg text-white shadow-xs'
+              ? 'theme-btn-primary shadow-xs'
               : 'theme-secondary-text hover:theme-main-text'
           }`}
         >
-          🚨 Financial Scam Detector
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span>Financial Fraud & Red Flags</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('SCENARIOS')}
-          className={`px-6 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer interactive-btn ${
             activeTab === 'SCENARIOS'
-              ? 'theme-primary-bg text-white shadow-xs'
+              ? 'theme-btn-primary shadow-xs'
               : 'theme-secondary-text hover:theme-main-text'
           }`}
         >
-          🧠 "What Would You Do?" Scenarios
+          <HelpCircle className="w-3.5 h-3.5" />
+          <span>Decision Simulation Scenarios</span>
         </button>
       </div>
 

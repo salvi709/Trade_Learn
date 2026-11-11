@@ -49,17 +49,33 @@ export const TradingJournal: React.FC<TradingJournalProps> = ({
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="theme-card border theme-border rounded-3xl p-6 md:p-8 shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2.5 theme-soft-accent-bg border theme-border rounded-xl theme-primary-text">
-            <BookOpen className="w-6 h-6" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 theme-soft-accent-bg border theme-border rounded-xl theme-primary-text">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold theme-main-text font-heading">
+                Disciplined Trading Journal
+              </h2>
+              <p className="text-xs theme-secondary-text mt-0.5">
+                Reflect on hypotheses, track execution discipline, and eliminate emotional decision-making.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold theme-main-text font-heading">
-              Disciplined Trading Journal
-            </h2>
-            <p className="text-xs theme-secondary-text">
-              "The best traders are not those who never lose, but those who study their decisions relentlessly."
-            </p>
+
+          <div className="flex items-center gap-4 text-xs font-mono theme-muted-text self-start sm:self-auto">
+            <div>
+              <span className="block text-[10px] uppercase">Entries</span>
+              <span className="font-bold theme-main-text text-sm">{entries.length}</span>
+            </div>
+            <span className="h-6 w-px theme-border" />
+            <div>
+              <span className="block text-[10px] uppercase">Plan Adherence</span>
+              <span className="font-bold theme-positive-text text-sm">
+                {entries.length > 0 ? `${Math.round((entries.filter(e => e.followedPlan).length / entries.length) * 100)}%` : '100%'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -198,15 +214,16 @@ export const TradingJournal: React.FC<TradingJournalProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px]">
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
                     <span className="theme-muted-text">Mindset:</span>
-                    <span className="theme-main-text font-semibold">{entry.emotions}</span>
+                    <span className="theme-main-text font-medium">{entry.emotions}</span>
+                    <span className="theme-muted-text">·</span>
                     {entry.followedPlan ? (
-                      <span className="theme-positive-text bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
-                        Disciplined
+                      <span className="theme-positive-text font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Disciplined
                       </span>
                     ) : (
-                      <span className="theme-negative-text bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 font-bold">
+                      <span className="theme-negative-text font-semibold">
                         Broke Plan
                       </span>
                     )}
@@ -214,20 +231,22 @@ export const TradingJournal: React.FC<TradingJournalProps> = ({
                 </div>
 
                 <p className="text-xs md:text-sm theme-main-text leading-relaxed">
-                  <strong className="theme-muted-text block text-[11px] mb-0.5">Thesis:</strong>
+                  <strong className="theme-muted-text block text-[11px] mb-0.5 uppercase font-mono tracking-wider">Trading Hypothesis:</strong>
                   {entry.reasoning}
                 </p>
 
                 {(entry.lessonLearned || entry.mistakes) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t theme-border text-xs">
                     {entry.lessonLearned && (
-                      <div className="theme-positive-text bg-emerald-500/10 p-2.5 rounded-lg border border-emerald-500/20">
-                        <strong>Takeaway:</strong> {entry.lessonLearned}
+                      <div className="theme-surface-subtle p-3 rounded-xl border theme-border">
+                        <strong className="theme-positive-text block text-[11px] mb-0.5">Key Takeaway:</strong>
+                        <span className="theme-main-text">{entry.lessonLearned}</span>
                       </div>
                     )}
                     {entry.mistakes && (
-                      <div className="theme-negative-text bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
-                        <strong>Mistake to avoid:</strong> {entry.mistakes}
+                      <div className="theme-surface-subtle p-3 rounded-xl border border-rose-500/30">
+                        <strong className="theme-negative-text block text-[11px] mb-0.5">Mistake Noted:</strong>
+                        <span className="theme-main-text">{entry.mistakes}</span>
                       </div>
                     )}
                   </div>
