@@ -19,6 +19,7 @@ import {
   generateAdminIntelligenceResponse 
 } from './serverAdmin';
 import { generateMentorResponse } from './serverMentorEngine';
+import { getMarketNews, getDashboardNews } from './serverNewsService';
 
 const app = express();
 const port = 3000;
@@ -235,6 +236,37 @@ app.get('/api/admin/logs', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Access Denied' });
   }
   return res.json({ logs: adminStore.auditLogs });
+});
+
+// Market News APIs
+app.get('/api/news', async (req: Request, res: Response) => {
+  try {
+    const category = req.query.category as any;
+    const search = req.query.search as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 30;
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await getMarketNews({
+      category,
+      search,
+      limit,
+      forceRefresh,
+    });
+    return res.json(result);
+  } catch (err: any) {
+    console.error('Market News API error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve market news.' });
+  }
+});
+
+app.get('/api/news/dashboard', async (_req: Request, res: Response) => {
+  try {
+    const stories = await getDashboardNews();
+    return res.json({ items: stories });
+  } catch (err: any) {
+    console.error('Dashboard News API error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve dashboard news.' });
+  }
 });
 
 // Serve static frontend assets in production

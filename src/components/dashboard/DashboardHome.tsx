@@ -26,15 +26,18 @@ import {
   ArrowUpRight,
   Sliders,
   Crosshair,
-  RotateCcw
+  RotateCcw,
+  Newspaper
 } from 'lucide-react';
-import { UserProfile, UserProgress, PaperPortfolio, Module, Lesson } from '../../types';
+import { UserProfile, UserProgress, PaperPortfolio, Module, Lesson, MarketNewsItem } from '../../types';
 import { getModuleStatus, getNextRecommendedLesson } from '../../data/curriculumData';
 import { FICTIONAL_STOCKS } from '../../data/marketData';
 import { getAvatarById } from '../../config/avatars';
 import { LockedModulePreview } from '../learning/LockedModulePreview';
 import { MascotWelcomePopup } from './MascotWelcomePopup';
 import { generateStockChartData, ChartTimeframe, ChartVolatility, GeneratedChartSeries } from '../../utils/chartDataGenerator';
+import { fetchDashboardNews } from '../../services/newsService';
+import { ArticleDetailModal } from '../news/ArticleDetailModal';
 
 
 interface DashboardHomeProps {
@@ -69,6 +72,26 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const dashboardChartSvgRef = useRef<SVGSVGElement | null>(null);
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number }>({ width: 560, height: 210 });
+  const [dashboardNews, setDashboardNews] = useState<MarketNewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState<boolean>(true);
+  const [activeNewsArticle, setActiveNewsArticle] = useState<MarketNewsItem | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDashboardNews()
+      .then((items) => {
+        if (isMounted && items && items.length > 0) {
+          setDashboardNews(items);
+        }
+      })
+      .catch((err) => console.warn('Dashboard news fetch warning:', err))
+      .finally(() => {
+        if (isMounted) setNewsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -1052,6 +1075,110 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       </div>
 
       {/* =====================================================================
+          MARKET NEWS PREVIEW — WHAT'S MOVING THE MARKET?
+         ===================================================================== */}
+      <div className="fintech-card p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b theme-border pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-[#0D6847]/20 border border-[#0D6847]/40 text-emerald-400">
+              <Newspaper className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold font-heading theme-main-text">
+                  Market News – What&apos;s Moving the Market?
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+                  Live Wire
+                </span>
+              </div>
+              <p className="text-[11px] theme-muted-text">
+                Real-time financial press feeds, monetary decisions, and sector movers
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('market_news')}
+            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer transition-colors"
+          >
+            <span>Explore Market News Center</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Stories Grid */}
+        {newsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-4 rounded-xl theme-surface-subtle border theme-border animate-pulse space-y-2.5">
+                <div className="h-3 w-20 bg-neutral-800 rounded" />
+                <div className="h-4 w-5/6 bg-neutral-800 rounded" />
+                <div className="h-3 w-full bg-neutral-900 rounded" />
+                <div className="h-3 w-16 bg-neutral-800 rounded mt-2" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {(dashboardNews.length > 0 ? dashboardNews.slice(0, 4) : []).map((story) => (
+              <div
+                key={story.id}
+                onClick={() => setActiveNewsArticle(story)}
+                className="p-4 rounded-xl theme-surface-subtle border theme-border hover:border-emerald-500/50 transition cursor-pointer group flex flex-col justify-between space-y-3"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                    <span className="font-semibold text-neutral-300 truncate max-w-[130px]">
+                      {story.publisher}
+                    </span>
+                    <span className="text-neutral-500 font-mono text-[10px]">
+                      {story.timeAgo}
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-semibold theme-main-text group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
+                    {story.title}
+                  </h4>
+
+                  <p className="text-[11px] theme-secondary-text line-clamp-2 leading-relaxed">
+                    {story.summary}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t theme-border flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1 overflow-hidden">
+                    {story.symbols && story.symbols.length > 0 ? (
+                      story.symbols.slice(0, 2).map((s) => (
+                        <span key={s} className="font-mono text-[10px] text-neutral-400">
+                          ${s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-neutral-500">Market</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 text-[11px]">
+                    {story.sentiment === 'POSITIVE' && (
+                      <span className="text-emerald-400 font-medium">Bullish</span>
+                    )}
+                    {story.sentiment === 'NEGATIVE' && (
+                      <span className="text-rose-400 font-medium">Bearish</span>
+                    )}
+                    {story.sentiment === 'NEUTRAL' && (
+                      <span className="text-neutral-500 font-medium">Neutral</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* =====================================================================
           SAFETY & INTEGRITY FOOTER BANNER
          ===================================================================== */}
       <div className="theme-surface-subtle border theme-border rounded-2xl p-4 flex items-center gap-3 text-xs theme-secondary-text">
@@ -1081,6 +1208,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           onNavigateToModule={() => {
             onNavigateTab('roadmap');
           }}
+        />
+      )}
+
+      {/* Article Detail Reading Drawer / Modal */}
+      {activeNewsArticle && (
+        <ArticleDetailModal
+          article={activeNewsArticle}
+          onClose={() => setActiveNewsArticle(null)}
+          onSelectRelated={(story) => setActiveNewsArticle(story)}
+          relatedArticles={dashboardNews.filter((s) => s.id !== activeNewsArticle.id)}
         />
       )}
     </div>

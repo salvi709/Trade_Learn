@@ -29,7 +29,8 @@ import {
   ShieldAlert,
   PanelLeftOpen,
   PanelLeftClose,
-  MessageSquareHeart
+  MessageSquareHeart,
+  Newspaper
 } from 'lucide-react';
 import { UserProfile, UserProgress, PaperPortfolio } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
@@ -250,6 +251,7 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({
       heading: 'OVERVIEW',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: Compass },
+        { id: 'market_news', label: 'Market News', icon: Newspaper },
       ]
     },
     {

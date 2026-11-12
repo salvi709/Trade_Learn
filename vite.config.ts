@@ -17,6 +17,7 @@ import {
   generateAdminIntelligenceResponse 
 } from './serverAdmin';
 import { generateMentorResponse } from './serverMentorEngine';
+import { getMarketNews, getDashboardNews } from './serverNewsService';
 
 function geminiMentorPlugin() {
   let geminiClient: GoogleGenAI | null = null;
@@ -145,6 +146,52 @@ function geminiMentorPlugin() {
             })
           );
         }
+      });
+
+      // 1b. Market News APIs
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        const urlObj = new URL(req.url, 'http://localhost');
+        const pathname = urlObj.pathname;
+
+        if (pathname === '/api/news') {
+          try {
+            const category = urlObj.searchParams.get('category') as any;
+            const search = urlObj.searchParams.get('search') || undefined;
+            const limitParam = urlObj.searchParams.get('limit');
+            const limit = limitParam ? parseInt(limitParam, 10) : 30;
+            const forceRefresh = urlObj.searchParams.get('refresh') === 'true';
+
+            const result = await getMarketNews({
+              category: category || undefined,
+              search,
+              limit,
+              forceRefresh,
+            });
+
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify(result));
+          } catch (err: any) {
+            console.error('Vite /api/news error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'Failed to retrieve market news.' }));
+          }
+        }
+
+        if (pathname === '/api/news/dashboard') {
+          try {
+            const stories = await getDashboardNews();
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ items: stories }));
+          } catch (err: any) {
+            console.error('Vite /api/news/dashboard error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: 'Failed to retrieve dashboard news.' }));
+          }
+        }
+
+        return next();
       });
 
       // 2. Admin APIs Middleware

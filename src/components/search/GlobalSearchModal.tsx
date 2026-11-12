@@ -19,7 +19,8 @@ import {
   X,
   History,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Newspaper
 } from 'lucide-react';
 import {
   SearchItem,
@@ -56,6 +57,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Palette,
   ShieldAlert,
   Users,
+  Newspaper,
 };
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({

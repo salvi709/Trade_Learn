@@ -118,6 +118,17 @@ export function getSearchIndex(currentUserEmail?: string | null): SearchItem[] {
       iconName: 'Bot',
     },
     {
+      id: 'tab_market_news',
+      title: 'Market News Center',
+      description: 'Real-time financial press feeds, monetary policy updates, corporate filings, and market intelligence.',
+      category: 'tools',
+      categoryLabel: 'News & Media',
+      path: 'Overview → Market News',
+      tabId: 'market_news',
+      keywords: ['news', 'market news', 'headlines', 'feed', 'press', 'rbi', 'sebi', 'nse', 'bse', 'sensex', 'nifty', 'corporate', 'earnings', 'breaking'],
+      iconName: 'Newspaper',
+    },
+    {
       id: 'tab_glossary',
       title: 'A-Z Market Glossary',
       description: 'Instant searchable glossary of 50+ stock market concepts, ratios, and technical terms.',

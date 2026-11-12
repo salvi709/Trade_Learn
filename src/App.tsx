@@ -77,6 +77,8 @@ import { AppOverviewTour } from './components/auth/AppOverviewTour';
 import { InteractiveGuidedTour } from './components/tour/InteractiveGuidedTour';
 import { StartupBrandReveal } from './components/branding/StartupBrandReveal';
 import { GlobalSearchModal } from './components/search/GlobalSearchModal';
+import { MarketNewsCenter } from './components/news/MarketNewsCenter';
+import { FloatingMarketFunFact } from './components/common/FloatingMarketFunFact';
 import { normalizeStreakOnLoad, recordLearningActivity, getLocalDateString } from './utils/streak';
 import { AlertCircle } from 'lucide-react';
 import { ExperienceFeedbackModal } from './components/feedback/ExperienceFeedbackModal';
@@ -1524,6 +1526,9 @@ function AppContent() {
           />
         )}
 
+        {/* 1.5. Dedicated Market News Center Tab */}
+        {activeTab === 'market_news' && <MarketNewsCenter />}
+
         {/* 2. Learning Roadmap Tab */}
         {activeTab === 'roadmap' && (
           <LearningRoadmap
@@ -1700,6 +1705,17 @@ function AppContent() {
         }
         onNewChat={handleNewMentorChat}
         isHidden={activeTab === 'mentor' || showTour}
+      />
+
+      {/* Floating Daily Market Fun Fact Popup */}
+      <FloatingMarketFunFact
+        isTourOrOnboardingActive={
+          showTour ||
+          showGuidedTour ||
+          !profile.onboardingCompleted ||
+          !profile.appIntroductionCompleted ||
+          !profile.guidedTourCompleted
+        }
       />
 
 

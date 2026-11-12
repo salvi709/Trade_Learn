@@ -235,3 +235,54 @@ export interface WhatWouldYouDoScenario {
     isDisciplined: boolean;
   }[];
 }
+
+// Market News Center Structures
+export type NewsCategory = 
+  | 'ALL'
+  | 'INDIAN_MARKETS'
+  | 'NSE_BSE'
+  | 'NIFTY_SENSEX'
+  | 'STOCKS_COMPANIES'
+  | 'IPO_LISTINGS'
+  | 'TECHNICAL_ANALYSIS'
+  | 'ECONOMY_RBI'
+  | 'GLOBAL_MARKETS'
+  | 'CORPORATE_ANNOUNCEMENTS'
+  | 'COMMODITIES_CURRENCY';
+
+export interface MarketNewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  publisher: string;
+  publisherLogo?: string;
+  publishedAt: string; // ISO string of publication
+  retrievedAt?: string; // ISO string of retrieval
+  timeAgo?: string;
+  category: NewsCategory;
+  isBreaking?: boolean;
+  isTrending?: boolean;
+  symbols?: string[];
+  sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+}
+
+export interface MarketNewsResponse {
+  items: MarketNewsItem[];
+  total: number;
+  retrievedAt: string;
+  source: string;
+  cached: boolean;
+}
+
+// Market Fun Fact Structures
+export interface MarketFunFact {
+  id: string;
+  category: 'history' | 'indian_markets' | 'terminology' | 'investing' | 'psychology' | 'patterns' | 'famous_events';
+  categoryLabel: string;
+  title: string;
+  fact: string;
+  explanation: string;
+  sourceRef: string;
+}
+
