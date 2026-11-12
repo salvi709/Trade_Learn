@@ -15,6 +15,7 @@ service cloud.firestore {
       return isAuthenticated() && (
         request.auth.token.email == 'salvisarthak2007@gmail.com' ||
         request.auth.token.email == 'sarthak.salvi25@mmit.edu.in' ||
+        request.auth.token.email == 'draque.67907@gmail.com' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -25,6 +26,7 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (
         request.auth.token.email == 'salvisarthak2007@gmail.com' ||
         request.auth.token.email == 'sarthak.salvi25@mmit.edu.in' ||
+        request.auth.token.email == 'draque.67907@gmail.com' ||
         request.auth.uid == adminId
       );
     }
@@ -40,7 +42,8 @@ service cloud.firestore {
         request.auth.uid == adminId ||
         request.auth.token.email == adminId ||
         adminId == 'salvisarthak2007@gmail.com' ||
-        adminId == 'sarthak.salvi25@mmit.edu.in'
+        adminId == 'sarthak.salvi25@mmit.edu.in' ||
+        adminId == 'draque.67907@gmail.com'
       );
     }
 

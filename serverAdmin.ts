@@ -6,6 +6,7 @@ export const ADMIN_OWNER_EMAIL = 'salvisarthak2007@gmail.com';
 export const ADMIN_AUTHORIZED_EMAILS: string[] = [
   'salvisarthak2007@gmail.com',
   'sarthak.salvi25@mmit.edu.in',
+  'draque.67907@gmail.com',
 ];
 
 export function isAuthorizedAdminEmail(email?: string | null): boolean {
