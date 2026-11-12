@@ -1101,10 +1101,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('market_news')}
-            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer transition-colors"
+            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer transition-colors group"
           >
             <span>Explore Market News Center</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
@@ -1126,7 +1126,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               <div
                 key={story.id}
                 onClick={() => setActiveNewsArticle(story)}
-                className="p-4 rounded-xl theme-surface-subtle border theme-border hover:border-emerald-500/50 transition cursor-pointer group flex flex-col justify-between space-y-3"
+                className="p-4 rounded-xl theme-surface-subtle border theme-border hover:border-emerald-500/50 hover:bg-neutral-900/60 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] text-neutral-400">

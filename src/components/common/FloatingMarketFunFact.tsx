@@ -2,49 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, X, Sparkles, BookOpen, ChevronRight } from 'lucide-react';
 import { MarketFunFact } from '../../types';
+import { MARKET_FUN_FACTS } from '../../data/marketFunFacts';
 import { 
   getNextUniqueFunFact, 
-  hasShownFunFactThisSession, 
   markFunFactShownThisSession 
 } from '../../utils/funFactRotation';
 
 interface FloatingMarketFunFactProps {
-  // Flag indicating if user is currently in a tour or onboarding flow
+  // Flag indicating if user is currently in a modal tour or onboarding flow
   isTourOrOnboardingActive?: boolean;
 }
 
 export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
   isTourOrOnboardingActive = false,
 }) => {
-  const [currentFact, setCurrentFact] = useState<MarketFunFact | null>(null);
-  const [isVisible, setIsVisible] = useState<boolean>(false);
+  const [currentFact, setCurrentFact] = useState<MarketFunFact>(() => {
+    try {
+      return getNextUniqueFunFact();
+    } catch {
+      return MARKET_FUN_FACTS[0];
+    }
+  });
+  const [isVisible, setIsVisible] = useState<boolean>(true);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   useEffect(() => {
-    // Do not show during tours or onboarding
+    // Hide while modal tour is active
     if (isTourOrOnboardingActive) {
       setIsVisible(false);
-      return;
+    } else {
+      setIsVisible(true);
+      markFunFactShownThisSession();
     }
-
-    // Check if already displayed this session
-    if (hasShownFunFactThisSession()) {
-      return;
-    }
-
-    // Delay display slightly after dashboard loads so user can take in the initial screen
-    const timer = setTimeout(() => {
-      try {
-        const fact = getNextUniqueFunFact();
-        setCurrentFact(fact);
-        setIsVisible(true);
-        markFunFactShownThisSession();
-      } catch (err) {
-        console.warn('Could not load market fun fact:', err);
-      }
-    }, 2800);
-
-    return () => clearTimeout(timer);
   }, [isTourOrOnboardingActive]);
 
   const handleDismiss = () => {
@@ -61,7 +50,7 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
     }
   };
 
-  if (!isVisible || !currentFact || isTourOrOnboardingActive) {
+  if (isTourOrOnboardingActive) {
     return null;
   }
 
@@ -73,11 +62,11 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-          className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-35 max-w-[340px] sm:max-w-[380px] w-full"
+          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-50 max-w-[340px] sm:max-w-[380px] w-full"
           role="complementary"
           aria-label="Daily Market Fun Fact"
         >
-          <div className="fintech-card p-4 rounded-2xl shadow-xl border border-emerald-500/25 bg-slate-900/95 dark:bg-black/95 text-white backdrop-blur-md relative overflow-hidden transition-all duration-200">
+          <div className="fintech-card p-4 rounded-2xl shadow-2xl border border-emerald-500/30 bg-slate-900/95 dark:bg-black/95 text-white backdrop-blur-md relative overflow-hidden transition-all duration-200">
             {/* Subtle glow backdrop */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -160,6 +149,26 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
             </div>
           </div>
         </motion.div>
+      )}
+
+      {/* Minimized Pill to Re-open if Dismissed */}
+      {!isVisible && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          onClick={() => setIsVisible(true)}
+          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/95 dark:bg-black/95 border border-emerald-500/40 text-emerald-400 text-xs font-medium shadow-xl hover:bg-slate-800 hover:border-emerald-500/70 transition cursor-pointer backdrop-blur-md group"
+          title="Open Daily Market Fact"
+          aria-label="Open Daily Market Fact"
+        >
+          <div className="w-5 h-5 rounded-full bg-[#0D6847] text-white flex items-center justify-center shrink-0">
+            <Lightbulb className="w-3 h-3 text-emerald-300" />
+          </div>
+          <span className="font-mono text-[11px] font-semibold text-slate-200 group-hover:text-white">
+            Market Fact
+          </span>
+        </motion.button>
       )}
     </AnimatePresence>
   );

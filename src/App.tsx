@@ -1709,13 +1709,7 @@ function AppContent() {
 
       {/* Floating Daily Market Fun Fact Popup */}
       <FloatingMarketFunFact
-        isTourOrOnboardingActive={
-          showTour ||
-          showGuidedTour ||
-          !profile.onboardingCompleted ||
-          !profile.appIntroductionCompleted ||
-          !profile.guidedTourCompleted
-        }
+        isTourOrOnboardingActive={showTour || showGuidedTour}
       />
 
 

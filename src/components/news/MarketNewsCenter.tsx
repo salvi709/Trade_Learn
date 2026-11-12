@@ -149,10 +149,10 @@ export const MarketNewsCenter: React.FC = () => {
       {breakingStory && (
         <div 
           onClick={() => setActiveArticle(breakingStory)}
-          className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-rose-950/40 via-[#11161F] to-[#0E131A] border border-rose-500/30 hover:border-rose-500/50 transition cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
+          className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-rose-950/40 via-[#11161F] to-[#0E131A] border border-rose-500/30 hover:border-rose-500/60 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
         >
           <div className="flex items-start sm:items-center gap-3">
-            <span className="px-2 py-1 rounded text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40 shrink-0 flex items-center gap-1">
+            <span className="px-2 py-1 rounded text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40 shrink-0 flex items-center gap-1 group-hover:scale-105 transition-transform duration-200">
               <Flame className="w-3 h-3 animate-pulse text-rose-400" />
               {breakingStory.isBreaking ? 'Breaking News' : 'Market Alert'}
             </span>
@@ -165,7 +165,7 @@ export const MarketNewsCenter: React.FC = () => {
             <span>{breakingStory.publisher}</span>
             <span className="text-neutral-600">·</span>
             <span>{breakingStory.timeAgo}</span>
-            <ArrowUpRight className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <ArrowUpRight className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
           </div>
         </div>
       )}
@@ -179,7 +179,7 @@ export const MarketNewsCenter: React.FC = () => {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                   isActive
                     ? 'bg-[#0D6847] text-white shadow-sm font-semibold'
                     : 'bg-[#0E131A] text-neutral-400 hover:text-white hover:bg-[#141C24] border border-[#1A222D]'
@@ -230,7 +230,7 @@ export const MarketNewsCenter: React.FC = () => {
           </span>
           <button
             onClick={() => setSentimentFilter('ALL')}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition ${
+            className={`px-2 py-1 rounded text-[11px] font-medium transition-all duration-150 hover:-translate-y-0.5 cursor-pointer ${
               sentimentFilter === 'ALL'
                 ? 'bg-[#182230] text-white border border-[#2A3B50]'
                 : 'text-neutral-400 hover:text-white'
@@ -240,7 +240,7 @@ export const MarketNewsCenter: React.FC = () => {
           </button>
           <button
             onClick={() => setSentimentFilter('POSITIVE')}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition flex items-center gap-1 ${
+            className={`px-2 py-1 rounded text-[11px] font-medium transition-all duration-150 hover:-translate-y-0.5 cursor-pointer flex items-center gap-1 ${
               sentimentFilter === 'POSITIVE'
                 ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-500/30'
                 : 'text-neutral-400 hover:text-emerald-400'
@@ -250,7 +250,7 @@ export const MarketNewsCenter: React.FC = () => {
           </button>
           <button
             onClick={() => setSentimentFilter('NEGATIVE')}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition flex items-center gap-1 ${
+            className={`px-2 py-1 rounded text-[11px] font-medium transition-all duration-150 hover:-translate-y-0.5 cursor-pointer flex items-center gap-1 ${
               sentimentFilter === 'NEGATIVE'
                 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30'
                 : 'text-neutral-400 hover:text-rose-400'
@@ -260,7 +260,7 @@ export const MarketNewsCenter: React.FC = () => {
           </button>
           <button
             onClick={() => setSentimentFilter('NEUTRAL')}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition flex items-center gap-1 ${
+            className={`px-2 py-1 rounded text-[11px] font-medium transition-all duration-150 hover:-translate-y-0.5 cursor-pointer flex items-center gap-1 ${
               sentimentFilter === 'NEUTRAL'
                 ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
                 : 'text-neutral-400 hover:text-neutral-300'
@@ -319,7 +319,7 @@ export const MarketNewsCenter: React.FC = () => {
           {leadStory && (
             <div
               onClick={() => setActiveArticle(leadStory)}
-              className="p-6 rounded-2xl bg-[#0B0F14] border border-[#1C2634] hover:border-[#2D3D52] transition cursor-pointer group space-y-4 shadow-xl"
+              className="p-6 rounded-2xl bg-[#0B0F14] border border-[#1C2634] hover:border-emerald-500/50 hover:bg-[#0D131B] hover:-translate-y-1 hover:shadow-2xl transition-all duration-200 cursor-pointer group space-y-4 shadow-xl"
             >
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-400">
                 <div className="flex items-center gap-2">
@@ -386,7 +386,7 @@ export const MarketNewsCenter: React.FC = () => {
               <div
                 key={story.id}
                 onClick={() => setActiveArticle(story)}
-                className="p-5 rounded-xl bg-[#090D12] border border-[#17202B] hover:border-[#263445] transition cursor-pointer group flex flex-col justify-between space-y-3"
+                className="p-5 rounded-xl bg-[#090D12] border border-[#17202B] hover:border-emerald-500/40 hover:bg-[#0D1219] hover:-translate-y-1 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-2">
                   {/* Quiet Unboxed Metadata Line */}

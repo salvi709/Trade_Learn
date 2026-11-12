@@ -207,7 +207,7 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                   <div
                     key={rel.id}
                     onClick={() => onSelectRelated(rel)}
-                    className="p-3.5 rounded-xl bg-[#0C1117] border border-[#1C2532] hover:border-neutral-700 transition cursor-pointer group flex flex-col justify-between"
+                    className="p-3.5 rounded-xl bg-[#0C1117] border border-[#1C2532] hover:border-emerald-500/40 hover:bg-[#0F1620] hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 cursor-pointer group flex flex-col justify-between"
                   >
                     <div className="space-y-1">
                       <div className="text-[11px] text-neutral-400 font-medium">
