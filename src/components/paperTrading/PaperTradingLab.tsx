@@ -14,9 +14,18 @@ import {
   ShieldCheck, 
   AlertCircle,
   FileText,
-  PieChart
+  PieChart,
+  Layers,
+  RotateCcw
 } from 'lucide-react';
 import { MarketMascot } from '../mascot/MarketMascot';
+import { 
+  generateStockChartData, 
+  ChartTimeframe, 
+  ChartVolatility, 
+  GeneratedChartSeries 
+} from '../../utils/chartDataGenerator';
+
 
 interface PaperTradingProps {
   portfolio: PaperPortfolio;
@@ -48,9 +57,12 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
   const [useTarget, setUseTarget] = useState<boolean>(true);
   const [targetPrice, setTargetPrice] = useState<number>(0);
   const [tradeStatus, setTradeStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>('1D');
+  const [chartVolatility, setChartVolatility] = useState<ChartVolatility>('normal');
+  const [showTechnicalSR, setShowTechnicalSR] = useState<boolean>(true);
   const [chartHoverIdx, setChartHoverIdx] = useState<number | null>(null);
   const [chartHovered, setChartHovered] = useState<boolean>(false);
-  const [chartDims, setChartDims] = useState<{ width: number; height: number }>({ width: 600, height: 160 });
+  const [chartDims, setChartDims] = useState<{ width: number; height: number }>({ width: 600, height: 320 });
   const chartSvgRef = React.useRef<SVGSVGElement | null>(null);
   const chartWrapperRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -70,6 +82,23 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
 
   const selectedStock = stocks.find((s) => s.symbol === selectedStockSymbol) || stocks[0];
   const userPosition: Position | undefined = portfolio.positions[selectedStock.symbol];
+
+  const handleResetChart = () => {
+    setChartTimeframe('1D');
+    setChartVolatility('normal');
+    setShowTechnicalSR(true);
+    setChartHoverIdx(null);
+    setChartHovered(false);
+    if (selectedStock) {
+      setStopLoss(Math.round(selectedStock.currentPrice * 0.95));
+      setTargetPrice(Math.round(selectedStock.currentPrice * 1.10));
+    }
+  };
+
+  // Generate deterministic dynamic chart data series for selected timeframe, stock, and volatility
+  const chartSeries: GeneratedChartSeries = React.useMemo(() => {
+    return generateStockChartData(selectedStock, chartTimeframe, chartVolatility);
+  }, [selectedStock, chartTimeframe, chartVolatility]);
 
   // Set default stop loss and target when stock changes
   React.useEffect(() => {
@@ -230,7 +259,7 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
             })}
           </div>
 
-          {/* Active Stock Details Card */}
+          {/* Active Stock Details Card & Enlarged Interactive Chart */}
           <div className="fintech-card p-6 space-y-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b theme-border pb-4">
               <div>
@@ -243,226 +272,418 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
                 <p className="text-xs theme-secondary-text mt-0.5">{selectedStock.sector} • {selectedStock.description}</p>
               </div>
 
-              <div className="text-right">
-                <div className="text-2xl font-bold font-mono theme-main-text tracking-tight">
-                  ₹{selectedStock.currentPrice.toFixed(2)}
+              {/* Standardized Toolbar: Timeframe, S/R, Volatility, Reset */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Standardized 6 Timeframe Selector Tabs */}
+                <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
+                  {(['1D', '1W', '1M', '3M', '6M', '1Y'] as ChartTimeframe[]).map((tf) => (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => setChartTimeframe(tf)}
+                      className={`px-2 py-1 rounded-lg transition-all cursor-pointer font-bold text-[11px] ${
+                        chartTimeframe === tf
+                          ? 'bg-[#0D6847] text-white shadow-xs'
+                          : 'theme-secondary-text hover:theme-main-text'
+                      }`}
+                    >
+                      {tf}
+                    </button>
+                  ))}
                 </div>
-                <div className={`text-xs font-mono font-bold flex items-center justify-end gap-1 ${
-                  selectedStock.change >= 0 ? 'text-emerald-500' : 'text-rose-500'
-                }`}>
-                  {selectedStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                  {selectedStock.change >= 0 ? '+' : ''}₹{selectedStock.change.toFixed(2)} ({selectedStock.changePercent}%)
+
+                {/* S/R Boundaries Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowTechnicalSR((prev) => !prev)}
+                  className={`px-2 py-1 rounded-xl border text-[11px] font-mono font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                    showTechnicalSR
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
+                      : 'theme-border theme-surface-subtle theme-secondary-text'
+                  }`}
+                  title="Toggle Support & Resistance Boundary Lines"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>S/R</span>
+                </button>
+
+                {/* Volatility Setting */}
+                <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setChartVolatility('normal')}
+                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                      chartVolatility === 'normal'
+                        ? 'bg-[#0D6847] text-white shadow-xs'
+                        : 'theme-secondary-text hover:theme-main-text'
+                    }`}
+                    title="Normal Volatility"
+                  >
+                    1x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartVolatility('high')}
+                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                      chartVolatility === 'high'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'theme-secondary-text hover:theme-main-text'
+                    }`}
+                    title="High Volatility Shock"
+                  >
+                    2x Vol
+                  </button>
                 </div>
+
+                {/* Working Chart Reset Button */}
+                <button
+                  type="button"
+                  onClick={handleResetChart}
+                  className="px-2 py-1 rounded-xl border theme-border theme-surface-subtle hover:theme-card theme-secondary-text hover:theme-main-text text-[11px] font-mono transition-all cursor-pointer flex items-center gap-1"
+                  title="Reset Chart Parameters"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
               </div>
             </div>
 
-            {/* Price Chart Simulation with SVG Glowing Curve & Dynamic Overlays */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono theme-secondary-text font-semibold uppercase tracking-wider">
-                    Today's Simulated Intraday Trend
-                  </span>
-                  {chartHovered && chartHoverIdx !== null && selectedStock.priceHistory[chartHoverIdx] && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-500 font-bold border border-emerald-500/30">
-                      ₹{selectedStock.priceHistory[chartHoverIdx].price.toFixed(2)} at {selectedStock.priceHistory[chartHoverIdx].time}
+            {/* Price Quote Header with Live Scrub Indicator */}
+            {(() => {
+              const pts = chartSeries.points;
+              const activePt = (chartHovered && chartHoverIdx !== null && pts[chartHoverIdx])
+                ? pts[chartHoverIdx]
+                : pts[pts.length - 1];
+
+              const firstPrice = chartSeries.periodOpen;
+              const priceDiff = activePt ? activePt.price - firstPrice : chartSeries.periodChange;
+              const pricePercent = firstPrice ? ((priceDiff / firstPrice) * 100).toFixed(2) : '0.00';
+
+              return (
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
+                        ₹{activePt.price.toFixed(2)}
+                      </div>
+                      {chartHovered && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30 animate-in fade-in">
+                          {activePt.fullDate}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs theme-muted-text mt-0.5">
+                      {selectedStock.name} · P/E {selectedStock.peRatio} · {chartTimeframe} Window
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className={`text-sm font-mono font-bold flex items-center justify-end gap-1 ${
+                      priceDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                    }`}>
+                      {priceDiff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                      {priceDiff >= 0 ? '+' : ''}₹{priceDiff.toFixed(2)} ({pricePercent}%)
                     </span>
-                  )}
+                    <span className="text-[11px] font-mono theme-muted-text">
+                      {chartHovered ? 'Continuous Inspection' : `${chartTimeframe} Simulated Range`}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[11px] theme-muted-text font-mono">9:15 AM - 3:30 PM IST · Scrub to Inspect</span>
-              </div>
+              );
+            })()}
 
-              {/* Glowing SVG Area Curve with Interactive Cursor & Input Boundaries */}
-              <div ref={chartWrapperRef} className="w-full h-44 theme-surface-subtle p-3 rounded-2xl border theme-border relative overflow-hidden select-none">
+            {/* Enlarged Glowing SVG Area Curve with Interactive Cursor & Input Boundaries */}
+            <div>
+              <div ref={chartWrapperRef} className="w-full h-72 sm:h-80 md:h-88 theme-surface-subtle p-3 rounded-2xl border theme-border relative overflow-hidden select-none">
                 {(() => {
-                  const padX = 20;
-                  const padTop = 14;
-                  const padBottom = 20;
-                  const plotWidth = Math.max(10, chartDims.width - padX * 2);
-                  const plotHeight = Math.max(10, chartDims.height - padTop - padBottom);
+                  const padX = 26;
+                  const padTop = 22;
+                  const padBottom = 26;
+                  const plotWidth = Math.max(20, chartDims.width - padX * 2);
+                  const plotHeight = Math.max(20, chartDims.height - padTop - padBottom);
 
-                  const minP = Math.min(...selectedStock.priceHistory.map((p) => p.price));
-                  const maxP = Math.max(...selectedStock.priceHistory.map((p) => p.price));
+                  // Include user planned stopLoss & targetPrice in the vertical domain so order guide lines never clip
+                  let minP = chartSeries.periodLow;
+                  let maxP = chartSeries.periodHigh;
+
+                  if (useStopLoss && stopLoss > 0 && stopLoss < minP) {
+                    minP = stopLoss * 0.99;
+                  }
+                  if (useTarget && targetPrice > 0 && targetPrice > maxP) {
+                    maxP = targetPrice * 1.01;
+                  }
                   const range = maxP - minP || 1;
 
-                  const chartPts = selectedStock.priceHistory.map((pt, i) => {
-                    const x = padX + (i / (selectedStock.priceHistory.length - 1 || 1)) * plotWidth;
+                  const chartPts = chartSeries.points.map((pt, i) => {
+                    const x = padX + (i / (chartSeries.points.length - 1 || 1)) * plotWidth;
                     const y = padTop + plotHeight - ((pt.price - minP) / range) * plotHeight;
-                    return { x, y, price: pt.price, time: pt.time };
+                    return { x, y, price: pt.price, label: pt.label, fullDate: pt.fullDate };
                   });
 
                   const pathStr = chartPts.reduce((acc, pt, i) => {
                     return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
                   }, '');
 
-                  const areaStr = `${pathStr} L ${padX + plotWidth} ${chartDims.height - padBottom + 2} L ${padX} ${chartDims.height - padBottom + 2} Z`;
+                  const areaStr = `${pathStr} L ${padX + plotWidth} ${chartDims.height - padBottom + 4} L ${padX} ${chartDims.height - padBottom + 4} Z`;
 
-                  // Calculate Y coordinate for user stop loss and target price
+                  // Calculate Y coordinate for arbitrary prices
                   const getPriceY = (val: number) => {
                     return padTop + plotHeight - ((val - minP) / range) * plotHeight;
                   };
 
                   const activeHoverPoint = (chartHovered && chartHoverIdx !== null && chartPts[chartHoverIdx])
                     ? chartPts[chartHoverIdx]
-                    : null;
+                    : chartPts[chartPts.length - 1];
 
-                  const handlePointer = (e: React.PointerEvent<SVGSVGElement>) => {
+                  const updateScrub = (clientX: number) => {
                     if (!chartSvgRef.current) return;
                     const rect = chartSvgRef.current.getBoundingClientRect();
-                    const clientX = e.clientX - rect.left;
-                    const clampedX = Math.max(padX, Math.min(padX + plotWidth, clientX));
+                    const clampedX = Math.max(padX, Math.min(padX + plotWidth, clientX - rect.left));
                     const ratio = (clampedX - padX) / plotWidth;
                     const idx = Math.max(0, Math.min(chartPts.length - 1, Math.round(ratio * (chartPts.length - 1))));
                     setChartHoverIdx(idx);
                     setChartHovered(true);
                   };
 
+                  const handlePointer = (e: React.PointerEvent<SVGSVGElement>) => {
+                    updateScrub(e.clientX);
+                  };
+
+                  const handleTouch = (e: React.TouchEvent<SVGSVGElement>) => {
+                    if (e.touches.length > 0) {
+                      updateScrub(e.touches[0].clientX);
+                    }
+                  };
+
+                  const supportY = getPriceY(chartSeries.supportPrice);
+                  const resistanceY = getPriceY(chartSeries.resistancePrice);
+
+                  const curDiff = activeHoverPoint.price - chartSeries.periodOpen;
+                  const curPct = chartSeries.periodOpen ? ((curDiff / chartSeries.periodOpen) * 100).toFixed(2) : '0.00';
+
                   return (
-                    <svg
-                      ref={chartSvgRef}
-                      viewBox={`0 0 ${chartDims.width} ${chartDims.height}`}
-                      className="w-full h-full overflow-visible cursor-crosshair touch-none select-none"
-                      onPointerMove={handlePointer}
-                      onPointerDown={handlePointer}
-                      onPointerLeave={() => {
-                        setChartHovered(false);
-                        setChartHoverIdx(null);
-                      }}
-                    >
-                      <defs>
-                        <linearGradient id="paperChartGlow" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
-                          <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Dynamic Target Price Boundary Line (Responds to user targetPrice input) */}
-                      {useTarget && targetPrice > 0 && (
-                        <g className="transition-all duration-200">
-                          <line
-                            x1={padX}
-                            y1={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(targetPrice)))}
-                            x2={padX + plotWidth}
-                            y2={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(targetPrice)))}
-                            stroke="#10B981"
-                            strokeWidth="1.2"
-                            strokeDasharray="3 3"
-                            opacity="0.8"
-                          />
-                          <text
-                            x={padX + plotWidth - 75}
-                            y={Math.max(12, getPriceY(targetPrice) - 3)}
-                            fill="#10B981"
-                            fontSize="9"
-                            fontFamily="monospace"
-                            fontWeight="bold"
-                          >
-                            TARGET ₹{targetPrice}
-                          </text>
-                        </g>
+                    <>
+                      {/* Floating Inspection Tooltip HUD */}
+                      {chartHovered && (
+                        <div className="absolute top-3 left-4 z-10 pointer-events-none bg-slate-900/90 dark:bg-black/90 text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
+                          <span className="font-bold text-white text-xs">₹{activeHoverPoint.price.toFixed(2)}</span>
+                          <span className={`font-semibold ${curDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {curDiff >= 0 ? '+' : ''}{curPct}%
+                          </span>
+                          <span className="text-slate-400 text-[10px]">{activeHoverPoint.fullDate}</span>
+                          <span className="text-slate-400 text-[10px] border-l border-slate-700 pl-2">
+                            H: ₹{chartSeries.periodHigh.toFixed(2)} · L: ₹{chartSeries.periodLow.toFixed(2)}
+                          </span>
+                        </div>
                       )}
 
-                      {/* Dynamic Stop-Loss Boundary Line (Responds to user stopLoss input) */}
-                      {useStopLoss && stopLoss > 0 && (
-                        <g className="transition-all duration-200">
-                          <line
-                            x1={padX}
-                            y1={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(stopLoss)))}
-                            x2={padX + plotWidth}
-                            y2={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(stopLoss)))}
-                            stroke="#F43F5E"
-                            strokeWidth="1.2"
-                            strokeDasharray="3 3"
-                            opacity="0.8"
-                          />
-                          <text
-                            x={padX + plotWidth - 85}
-                            y={Math.min(chartDims.height - 4, getPriceY(stopLoss) + 11)}
-                            fill="#F43F5E"
-                            fontSize="9"
-                            fontFamily="monospace"
-                            fontWeight="bold"
-                          >
-                            STOP-LOSS ₹{stopLoss}
-                          </text>
-                        </g>
-                      )}
+                      <svg
+                        ref={chartSvgRef}
+                        viewBox={`0 0 ${chartDims.width} ${chartDims.height}`}
+                        className="w-full h-full overflow-visible cursor-crosshair touch-none select-none"
+                        onPointerMove={handlePointer}
+                        onPointerDown={handlePointer}
+                        onTouchStart={handleTouch}
+                        onTouchMove={handleTouch}
+                        onTouchEnd={() => {
+                          setChartHovered(false);
+                          setChartHoverIdx(null);
+                        }}
+                        onPointerLeave={() => {
+                          setChartHovered(false);
+                          setChartHoverIdx(null);
+                        }}
+                      >
+                        <defs>
+                          <linearGradient id="paperChartGlow" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
+                            <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                          </linearGradient>
+                          <filter id="paperPointGlow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#10B981" floodOpacity="0.85" />
+                          </filter>
+                        </defs>
 
-                      {/* Area fill */}
-                      <path d={areaStr} fill="url(#paperChartGlow)" />
+                        {/* Optional Support & Resistance Technical Levels */}
+                        {showTechnicalSR && (
+                          <g className="transition-opacity duration-200">
+                            {/* Resistance Line */}
+                            <line
+                              x1={padX}
+                              y1={resistanceY}
+                              x2={padX + plotWidth}
+                              y2={resistanceY}
+                              stroke="#F43F5E"
+                              strokeWidth="1.2"
+                              strokeDasharray="3 3"
+                              opacity="0.75"
+                            />
+                            <text 
+                              x={padX + plotWidth - 70} 
+                              y={Math.max(14, resistanceY - 4)} 
+                              fill="#F43F5E" 
+                              fontSize="9" 
+                              fontFamily="monospace" 
+                              fontWeight="bold"
+                            >
+                              RES ₹{chartSeries.resistancePrice}
+                            </text>
 
-                      {/* Glowing line */}
-                      <path
-                        d={pathStr}
-                        fill="none"
-                        stroke="#10B981"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="transition-all duration-300"
-                      />
+                            {/* Support Line */}
+                            <line
+                              x1={padX}
+                              y1={supportY}
+                              x2={padX + plotWidth}
+                              y2={supportY}
+                              stroke="#10B981"
+                              strokeWidth="1.2"
+                              strokeDasharray="3 3"
+                              opacity="0.75"
+                            />
+                            <text 
+                              x={padX + plotWidth - 70} 
+                              y={Math.min(chartDims.height - padBottom, supportY + 12)} 
+                              fill="#10B981" 
+                              fontSize="9" 
+                              fontFamily="monospace" 
+                              fontWeight="bold"
+                            >
+                              SUP ₹{chartSeries.supportPrice}
+                            </text>
+                          </g>
+                        )}
 
-                      {/* Regular Data Points - 100% Circular */}
-                      {chartPts.map((pt, i) => (
-                        <circle
-                          key={i}
-                          cx={pt.x}
-                          cy={pt.y}
-                          r={chartHoverIdx === i ? 5 : 3}
-                          fill={chartHoverIdx === i ? '#FFFFFF' : '#10B981'}
-                          stroke={chartHoverIdx === i ? '#10B981' : '#000000'}
-                          strokeWidth={chartHoverIdx === i ? 2 : 1.2}
-                          className="transition-all duration-150"
+                        {/* Dynamic Target Price Boundary Line (Responds to user targetPrice input) */}
+                        {useTarget && targetPrice > 0 && (
+                          <g className="transition-all duration-200">
+                            <line
+                              x1={padX}
+                              y1={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(targetPrice)))}
+                              x2={padX + plotWidth}
+                              y2={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(targetPrice)))}
+                              stroke="#10B981"
+                              strokeWidth="1.4"
+                              strokeDasharray="4 3"
+                              opacity="0.9"
+                            />
+                            <text
+                              x={padX + 8}
+                              y={Math.max(14, getPriceY(targetPrice) - 4)}
+                              fill="#10B981"
+                              fontSize="10"
+                              fontFamily="monospace"
+                              fontWeight="bold"
+                            >
+                              TARGET ₹{targetPrice}
+                            </text>
+                          </g>
+                        )}
+
+                        {/* Dynamic Stop-Loss Boundary Line (Responds to user stopLoss input) */}
+                        {useStopLoss && stopLoss > 0 && (
+                          <g className="transition-all duration-200">
+                            <line
+                              x1={padX}
+                              y1={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(stopLoss)))}
+                              x2={padX + plotWidth}
+                              y2={Math.max(padTop, Math.min(chartDims.height - padBottom, getPriceY(stopLoss)))}
+                              stroke="#F43F5E"
+                              strokeWidth="1.4"
+                              strokeDasharray="4 3"
+                              opacity="0.9"
+                            />
+                            <text
+                              x={padX + 8}
+                              y={Math.min(chartDims.height - 6, getPriceY(stopLoss) + 12)}
+                              fill="#F43F5E"
+                              fontSize="10"
+                              fontFamily="monospace"
+                              fontWeight="bold"
+                            >
+                              STOP-LOSS ₹{stopLoss}
+                            </text>
+                          </g>
+                        )}
+
+                        {/* Area fill */}
+                        <path d={areaStr} fill="url(#paperChartGlow)" />
+
+                        {/* Glowing line */}
+                        <path
+                          d={pathStr}
+                          fill="none"
+                          stroke="#10B981"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="transition-all duration-300"
                         />
-                      ))}
 
-                      {/* Interactive Crosshair Guideline on Cursor Movement */}
-                      {activeHoverPoint && (
-                        <g className="pointer-events-none">
-                          <line
-                            x1={activeHoverPoint.x}
-                            y1={padTop}
-                            x2={activeHoverPoint.x}
-                            y2={chartDims.height - padBottom}
-                            stroke="#10B981"
-                            strokeWidth="1"
-                            strokeDasharray="2 2"
-                            opacity="0.75"
-                          />
-                          <line
-                            x1={padX}
-                            y1={activeHoverPoint.y}
-                            x2={padX + plotWidth}
-                            y2={activeHoverPoint.y}
-                            stroke="#10B981"
-                            strokeWidth="1"
-                            strokeDasharray="2 2"
-                            opacity="0.75"
-                          />
+                        {/* Regular Data Points - 100% Circular */}
+                        {chartPts.map((pt, i) => (
                           <circle
-                            cx={activeHoverPoint.x}
-                            cy={activeHoverPoint.y}
-                            r={5.5}
-                            fill="#10B981"
-                            stroke="#FFFFFF"
-                            strokeWidth={2}
+                            key={i}
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={chartHoverIdx === i ? 5.5 : 2.5}
+                            fill={chartHoverIdx === i ? '#FFFFFF' : '#10B981'}
+                            stroke={chartHoverIdx === i ? '#0D6847' : '#000000'}
+                            strokeWidth={chartHoverIdx === i ? 2.5 : 1}
+                            className="transition-all duration-150"
                           />
-                        </g>
-                      )}
-                    </svg>
+                        ))}
+
+                        {/* Interactive Crosshair Guideline on Cursor Movement */}
+                        {chartHovered && activeHoverPoint && (
+                          <g className="pointer-events-none transition-opacity duration-150">
+                            <line
+                              x1={activeHoverPoint.x}
+                              y1={padTop}
+                              x2={activeHoverPoint.x}
+                              y2={chartDims.height - padBottom}
+                              stroke="#10B981"
+                              strokeWidth="1.2"
+                              strokeDasharray="2 2"
+                              opacity="0.8"
+                            />
+                            <line
+                              x1={padX}
+                              y1={activeHoverPoint.y}
+                              x2={padX + plotWidth}
+                              y2={activeHoverPoint.y}
+                              stroke="#10B981"
+                              strokeWidth="1.2"
+                              strokeDasharray="2 2"
+                              opacity="0.8"
+                            />
+                            <circle
+                              cx={activeHoverPoint.x}
+                              cy={activeHoverPoint.y}
+                              r={7}
+                              fill="#10B981"
+                              stroke="#FFFFFF"
+                              strokeWidth={2.5}
+                              style={{ filter: 'url(#paperPointGlow)' }}
+                            />
+                          </g>
+                        )}
+                      </svg>
+                    </>
                   );
                 })()}
 
-                {/* Micro time labels */}
-                <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text mt-1 border-t theme-border pt-1">
-                  {selectedStock.priceHistory.map((p, idx) => (
-                    <span 
-                      key={idx}
-                      className={chartHoverIdx === idx ? 'text-emerald-500 font-bold' : undefined}
-                    >
-                      {p.time}
-                    </span>
-                  ))}
+                {/* Evenly spaced time labels */}
+                <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text mt-1 border-t theme-border pt-1 px-1">
+                  {chartSeries.points
+                    .filter((_, idx, arr) => idx === 0 || idx === Math.floor(arr.length * 0.25) || idx === Math.floor(arr.length * 0.5) || idx === Math.floor(arr.length * 0.75) || idx === arr.length - 1)
+                    .map((p, idx) => (
+                      <span 
+                        key={idx}
+                        className={chartHoverIdx !== null && chartSeries.points[chartHoverIdx]?.label === p.label ? 'text-emerald-500 font-bold' : undefined}
+                      >
+                        {p.label}
+                      </span>
+                    ))}
                 </div>
               </div>
             </div>

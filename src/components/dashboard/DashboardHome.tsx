@@ -34,6 +34,8 @@ import { FICTIONAL_STOCKS } from '../../data/marketData';
 import { getAvatarById } from '../../config/avatars';
 import { LockedModulePreview } from '../learning/LockedModulePreview';
 import { MascotWelcomePopup } from './MascotWelcomePopup';
+import { generateStockChartData, ChartTimeframe, ChartVolatility, GeneratedChartSeries } from '../../utils/chartDataGenerator';
+
 
 interface DashboardHomeProps {
   profile: UserProfile;
@@ -58,15 +60,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   const [selectedLockedModule, setSelectedLockedModule] = useState<Module | null>(null);
   const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('NOVA');
-  const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '1Y'>('1D');
-  const [chartVolatility, setChartVolatility] = useState<'normal' | 'high'>('normal');
+  const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>('1D');
+  const [chartVolatility, setChartVolatility] = useState<ChartVolatility>('normal');
   const [showTechnicalSR, setShowTechnicalSR] = useState<boolean>(true);
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [isChartHovered, setIsChartHovered] = useState<boolean>(false);
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null);
   const dashboardChartSvgRef = useRef<SVGSVGElement | null>(null);
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number }>({ width: 560, height: 180 });
+  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number }>({ width: 560, height: 210 });
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -74,7 +76,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     const measure = () => {
       const rect = el.getBoundingClientRect();
       if (rect.width > 50) {
-        setChartDimensions({ width: Math.round(rect.width), height: Math.round(rect.height || 180) });
+        setChartDimensions({ width: Math.round(rect.width), height: Math.round(rect.height || 210) });
       }
     };
     measure();
@@ -90,6 +92,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     setShowTechnicalSR(true);
     setHoveredPointIndex(null);
     setIsChartHovered(false);
+    setCursorCoord(null);
   };
 
   const [challengeAnswer, setChallengeAnswer] = useState<number | null>(null);
@@ -230,75 +233,31 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     },
   ];
 
-  // Generate dynamic data series for the selected timeframe, stock, and volatility
-  const dynamicChartData = useMemo(() => {
-    const basePrices = activeStock.priceHistory.map((p) => p.price);
-    const lastPrice = activeStock.currentPrice;
-    const volFactor = chartVolatility === 'high' ? 1.9 : 1.0;
-
-    if (chartTimeframe === '1D') {
-      return activeStock.priceHistory.map((p) => {
-        const diff = p.price - (basePrices[0] || lastPrice);
-        return {
-          label: p.time,
-          price: Math.round(((basePrices[0] || lastPrice) + diff * volFactor) * 100) / 100,
-        };
-      });
-    }
-
-    if (chartTimeframe === '1W') {
-      const days = ['Mon 9:15', 'Tue 12:00', 'Wed 14:30', 'Thu 11:15', 'Today Close'];
-      const openRef = basePrices[0] || lastPrice * 0.98;
-      const step = (lastPrice - openRef) / 4;
-      return days.map((day, i) => ({
-        label: day,
-        price: Math.round((openRef + step * i + (Math.sin(i * 1.5) * lastPrice * 0.012 * volFactor)) * 100) / 100,
-      }));
-    }
-
-    if (chartTimeframe === '1M') {
-      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'];
-      const swingLow = activeStock.low52w ? activeStock.low52w + (lastPrice - activeStock.low52w) * 0.45 : lastPrice * 0.93;
-      const step = (lastPrice - swingLow) / 4;
-      return weeks.map((w, i) => ({
-        label: w,
-        price: Math.round((swingLow + step * i + (Math.cos(i) * lastPrice * 0.015 * volFactor)) * 100) / 100,
-      }));
-    }
-
-    // 1Y Macro
-    const months = ['Q1', 'Q2', 'Q3', 'Q4', 'Now'];
-    const low = activeStock.low52w || lastPrice * 0.85;
-    const high = activeStock.high52w || lastPrice * 1.15;
-    return months.map((m, i) => {
-      const ratio = i / (months.length - 1);
-      const pr = low + (high - low) * (0.35 + 0.55 * ratio + 0.08 * Math.sin(i * 1.4) * volFactor);
-      return {
-        label: m,
-        price: Math.round(pr * 100) / 100,
-      };
-    });
+  // Generate deterministic dynamic chart data series for selected timeframe, stock, and volatility
+  const chartSeries: GeneratedChartSeries = useMemo(() => {
+    return generateStockChartData(activeStock, chartTimeframe, chartVolatility);
   }, [activeStock, chartTimeframe, chartVolatility]);
 
-  const minPrice = Math.min(...dynamicChartData.map((p) => p.price));
-  const maxPrice = Math.max(...dynamicChartData.map((p) => p.price));
+  const dynamicChartData = chartSeries.points;
+  const minPrice = chartSeries.periodLow;
+  const maxPrice = chartSeries.periodHigh;
   const priceRange = maxPrice - minPrice || 1;
 
-  // Key Support & Resistance bounds
-  const supportPrice = Math.round((minPrice * 0.996) * 100) / 100;
-  const resistancePrice = Math.round((maxPrice * 1.004) * 100) / 100;
+  // Key Support & Resistance bounds from data series
+  const supportPrice = chartSeries.supportPrice;
+  const resistancePrice = chartSeries.resistancePrice;
 
   // Real pixel-based dimensions (Guarantees zero oval distortion)
-  const padX = 24;
-  const padTop = 16;
-  const padBottom = 22;
+  const padX = 26;
+  const padTop = 18;
+  const padBottom = 24;
   const plotWidth = Math.max(chartDimensions.width - padX * 2, 80);
   const plotHeight = Math.max(chartDimensions.height - padTop - padBottom, 50);
 
   const chartPoints = dynamicChartData.map((p, i) => {
     const x = padX + (i / (dynamicChartData.length - 1 || 1)) * plotWidth;
     const y = padTop + plotHeight - ((p.price - minPrice) / priceRange) * plotHeight;
-    return { x, y, price: p.price, time: p.label };
+    return { x, y, price: p.price, label: p.label, fullDate: p.fullDate };
   });
 
   const pathD = chartPoints.reduce((acc, pt, i) => {
@@ -315,24 +274,32 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     ? chartPoints[hoveredPointIndex]
     : chartPoints[chartPoints.length - 1];
 
-  const firstPrice = dynamicChartData[0]?.price || activeStock.currentPrice;
-  const displayPriceDiff = activeDisplayPoint ? activeDisplayPoint.price - firstPrice : activeStock.change;
-  const displayPricePercent = firstPrice ? ((displayPriceDiff / firstPrice) * 100).toFixed(2) : activeStock.changePercent;
+  const firstPrice = chartSeries.periodOpen || activeStock.currentPrice;
+  const displayPriceDiff = activeDisplayPoint ? activeDisplayPoint.price - firstPrice : chartSeries.periodChange;
+  const displayPricePercent = firstPrice ? ((displayPriceDiff / firstPrice) * 100).toFixed(2) : '0.00';
 
-  // Pointer move handler in actual pixel coordinate space
-  const handleChartPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+  // Pointer & Touch handlers in actual pixel coordinate space
+  const updateScrubFromClientX = (clientX: number, clientY: number) => {
     if (!dashboardChartSvgRef.current) return;
     const rect = dashboardChartSvgRef.current.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-
-    const clampedX = Math.max(padX, Math.min(padX + plotWidth, clientX));
+    const relX = clientX - rect.left;
+    const clampedX = Math.max(padX, Math.min(padX + plotWidth, relX));
     const normalizedRatio = (clampedX - padX) / plotWidth;
     const closestIdx = Math.max(0, Math.min(chartPoints.length - 1, Math.round(normalizedRatio * (chartPoints.length - 1))));
 
     setHoveredPointIndex(closestIdx);
-    setCursorCoord({ x: clampedX, y: clientY });
+    setCursorCoord({ x: clampedX, y: clientY - rect.top });
     setIsChartHovered(true);
+  };
+
+  const handleChartPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    updateScrubFromClientX(e.clientX, e.clientY);
+  };
+
+  const handleChartTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length > 0) {
+      updateScrubFromClientX(e.touches[0].clientX, e.touches[0].clientY);
+    }
   };
 
   const handleChartPointerLeave = () => {
@@ -583,9 +550,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
               {/* Stock Selector & Timeframe Bar */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Stock Selector Tabs */}
+                {/* Stock Selector Tabs (NOVA, GREENCORE, URBAN, BLUEWAVE) */}
                 <div className="flex items-center gap-1 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
-                  {FICTIONAL_STOCKS.slice(0, 3).map((stock) => (
+                  {FICTIONAL_STOCKS.slice(0, 4).map((stock) => (
                     <button
                       key={stock.symbol}
                       type="button"
@@ -601,16 +568,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   ))}
                 </div>
 
-                {/* Timeframe Selector Tabs */}
+                {/* Standardized 6-Timeframe Selector Tabs */}
                 <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
-                  {(['1D', '1W', '1M', '1Y'] as Array<'1D' | '1W' | '1M' | '1Y'>).map((tf) => (
+                  {(['1D', '1W', '1M', '3M', '6M', '1Y'] as ChartTimeframe[]).map((tf) => (
                     <button
                       key={tf}
                       type="button"
                       onClick={() => setChartTimeframe(tf)}
                       className={`px-2 py-1 rounded-lg transition-all cursor-pointer font-bold text-[11px] ${
                         chartTimeframe === tf
-                          ? 'bg-emerald-600 text-white shadow-xs'
+                          ? 'bg-[#0D6847] text-white shadow-xs'
                           : 'theme-secondary-text hover:theme-main-text'
                       }`}
                     >
@@ -634,14 +601,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <span>S/R</span>
                 </button>
 
-                {/* Volatility Setting (Prompt Requirement 2) */}
+                {/* Volatility Setting */}
                 <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
                   <button
                     type="button"
                     onClick={() => setChartVolatility('normal')}
                     className={`px-2 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
                       chartVolatility === 'normal'
-                        ? 'bg-emerald-600 text-white shadow-xs'
+                        ? 'bg-[#0D6847] text-white shadow-xs'
                         : 'theme-secondary-text hover:theme-main-text'
                     }`}
                     title="Normal Volatility"
@@ -676,7 +643,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
 
             {/* Price Quote Header with Live Scrub Indicator */}
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
                   <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
@@ -684,7 +651,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   </div>
                   {isChartHovered && (
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30 animate-in fade-in">
-                      {activeDisplayPoint.time}
+                      {activeDisplayPoint.fullDate}
                     </span>
                   )}
                 </div>
@@ -701,13 +668,27 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   {displayPriceDiff >= 0 ? '+' : ''}₹{displayPriceDiff.toFixed(2)} ({displayPricePercent}%)
                 </span>
                 <span className="text-[11px] font-mono theme-muted-text">
-                  {isChartHovered ? 'Inspecting Coordinate' : `${chartTimeframe} Simulated`}
+                  {isChartHovered ? 'Continuous Inspection' : `${chartTimeframe} Simulated Range`}
                 </span>
               </div>
             </div>
 
-            {/* Glowing SVG Area Chart with Crosshair & Cursor Movement (Phase 1 Isotropic Scaling & Perfect Circles) */}
-            <div ref={chartContainerRef} className="w-full h-48 relative pt-2">
+            {/* Glowing SVG Area Chart with Crosshair & Continuous Cursor Scrubbing */}
+            <div ref={chartContainerRef} className="w-full h-56 relative pt-2">
+              {/* Detailed Inspection Tooltip HUD Floating Badge */}
+              {isChartHovered && activeDisplayPoint && (
+                <div className="absolute top-3 left-4 z-10 pointer-events-none bg-slate-900/90 dark:bg-black/90 text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
+                  <span className="font-bold text-white text-xs">₹{activeDisplayPoint.price.toFixed(2)}</span>
+                  <span className={`font-semibold ${displayPriceDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {displayPriceDiff >= 0 ? '+' : ''}{displayPricePercent}%
+                  </span>
+                  <span className="text-slate-400 text-[10px]">{activeDisplayPoint.fullDate}</span>
+                  <span className="text-slate-400 text-[10px] border-l border-slate-700 pl-2">
+                    H: ₹{chartSeries.periodHigh.toFixed(2)} · L: ₹{chartSeries.periodLow.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
               <svg 
                 ref={dashboardChartSvgRef}
                 viewBox={`0 0 ${chartDimensions.width} ${chartDimensions.height}`}
@@ -715,14 +696,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 onPointerMove={handleChartPointerMove}
                 onPointerLeave={handleChartPointerLeave}
                 onPointerDown={handleChartPointerMove}
+                onTouchStart={handleChartTouchMove}
+                onTouchMove={handleChartTouchMove}
+                onTouchEnd={handleChartPointerLeave}
               >
                 <defs>
                   <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
+                    <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
                     <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
                   </linearGradient>
                   <filter id="dashPointGlow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#10B981" floodOpacity="0.8" />
+                    <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#10B981" floodOpacity="0.85" />
                   </filter>
                 </defs>
 
@@ -738,10 +722,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       stroke="#F43F5E"
                       strokeWidth="1.2"
                       strokeDasharray="3 3"
-                      opacity="0.65"
+                      opacity="0.75"
                     />
                     <text 
-                      x={padX + plotWidth - 68} 
+                      x={padX + plotWidth - 70} 
                       y={Math.max(14, resistanceY - 4)} 
                       fill="#F43F5E" 
                       fontSize="9" 
@@ -760,10 +744,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       stroke="#10B981"
                       strokeWidth="1.2"
                       strokeDasharray="3 3"
-                      opacity="0.65"
+                      opacity="0.75"
                     />
                     <text 
-                      x={padX + plotWidth - 68} 
+                      x={padX + plotWidth - 70} 
                       y={Math.min(chartDimensions.height - padBottom, supportY + 12)} 
                       fill="#10B981" 
                       fontSize="9" 
@@ -797,14 +781,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     cy={pt.y}
                     r={hoveredPointIndex === i ? 5.5 : 2.5}
                     fill={hoveredPointIndex === i ? '#FFFFFF' : '#10B981'}
-                    stroke={hoveredPointIndex === i ? '#10B981' : '#FFFFFF'}
+                    stroke={hoveredPointIndex === i ? '#0D6847' : '#FFFFFF'}
                     strokeWidth={hoveredPointIndex === i ? 2.5 : 1}
                     className="transition-all duration-150"
                   />
                 ))}
 
                 {/* Interactive Crosshair Tracking on Cursor Movement */}
-                {isChartHovered && cursorCoord && activeDisplayPoint && (
+                {isChartHovered && activeDisplayPoint && (
                   <g className="pointer-events-none transition-opacity duration-150">
                     {/* Vertical Time Guideline */}
                     <line
@@ -813,9 +797,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       x2={activeDisplayPoint.x}
                       y2={chartDimensions.height - padBottom}
                       stroke="#10B981"
-                      strokeWidth="1"
+                      strokeWidth="1.2"
                       strokeDasharray="2 2"
-                      opacity="0.75"
+                      opacity="0.8"
                     />
                     {/* Horizontal Price Guideline */}
                     <line
@@ -824,15 +808,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       x2={padX + plotWidth}
                       y2={activeDisplayPoint.y}
                       stroke="#10B981"
-                      strokeWidth="1"
+                      strokeWidth="1.2"
                       strokeDasharray="2 2"
-                      opacity="0.75"
+                      opacity="0.8"
                     />
                     {/* Active Highlighted Pulse Marker - Guaranteed true circle */}
                     <circle
                       cx={activeDisplayPoint.x}
                       cy={activeDisplayPoint.y}
-                      r={6.5}
+                      r={7}
                       fill="#10B981"
                       stroke="#FFFFFF"
                       strokeWidth={2.5}
@@ -842,16 +826,18 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 )}
               </svg>
 
-              {/* Time Axis Labels Synchronized with dynamic data */}
-              <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text pt-2 border-t theme-border mt-1">
-                {dynamicChartData.map((pt, idx) => (
-                  <span 
-                    key={idx}
-                    className={hoveredPointIndex === idx ? 'text-emerald-500 font-bold' : undefined}
-                  >
-                    {pt.label}
-                  </span>
-                ))}
+              {/* Time Axis Labels Synchronized with dynamic data (evenly spaced intervals) */}
+              <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text pt-2 border-t theme-border mt-1 px-1">
+                {chartPoints
+                  .filter((_, idx, arr) => idx === 0 || idx === Math.floor(arr.length * 0.25) || idx === Math.floor(arr.length * 0.5) || idx === Math.floor(arr.length * 0.75) || idx === arr.length - 1)
+                  .map((pt, idx) => (
+                    <span 
+                      key={idx}
+                      className={activeDisplayPoint.label === pt.label ? 'text-emerald-500 font-bold' : undefined}
+                    >
+                      {pt.label}
+                    </span>
+                  ))}
               </div>
             </div>
 
