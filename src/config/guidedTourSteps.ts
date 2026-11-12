@@ -56,7 +56,18 @@ export const GUIDED_TOUR_STEPS: GuidedTourStep[] = [
       'Follow the 10-stage journey from foundational market basics to advanced understanding, or preview locked stages anytime.',
     preferredPlacement: 'top',
   },
-  // 5. Curriculum & Learning Page
+  // 5. Dashboard AI Learning Companion (New entry point on Dashboard)
+  {
+    id: 'dashboard-ai-companion',
+    route: 'dashboard',
+    target: '[data-tour="dashboard-ai-companion"]',
+    sectionLabel: 'AI Learning Companion',
+    title: 'Your AI Learning Companion',
+    description:
+      'Have a question about the market? Learn concepts and understand charts with plain-English analogies directly from your dashboard.',
+    preferredPlacement: 'top',
+  },
+  // 6. Curriculum & Learning Page
   {
     id: 'learning-roadmap-stages',
     route: 'roadmap',

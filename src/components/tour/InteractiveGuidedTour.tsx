@@ -332,6 +332,26 @@ export const InteractiveGuidedTour: React.FC<InteractiveGuidedTourProps> = ({
     let top = VIEWPORT_MARGIN;
     let left = VIEWPORT_MARGIN;
 
+    if (isMobileViewport) {
+      // On mobile viewports (<768px), ensure safe placement within margins with zero overflow
+      const safeLeft = VIEWPORT_MARGIN;
+      const safeWidth = vw - VIEWPORT_MARGIN * 2;
+
+      let safeTop: number;
+      if (cutout.top > cardH + TOOLTIP_GAP + VIEWPORT_MARGIN) {
+        // Place above target
+        safeTop = Math.max(VIEWPORT_MARGIN, cutout.top - cardH - TOOLTIP_GAP);
+        const arrowLeft = Math.min(safeWidth - 28, Math.max(28, targetCenterX - safeLeft));
+        return { top: safeTop, left: safeLeft, placement: 'top', arrowLeft };
+      } else {
+        // Place below target or clamped at bottom
+        safeTop = Math.min(vh - cardH - VIEWPORT_MARGIN, cutout.bottom + TOOLTIP_GAP);
+        safeTop = Math.max(VIEWPORT_MARGIN, safeTop);
+        const arrowLeft = Math.min(safeWidth - 28, Math.max(28, targetCenterX - safeLeft));
+        return { top: safeTop, left: safeLeft, placement: 'bottom', arrowLeft };
+      }
+    }
+
     if (chosenPlacement === 'bottom') {
       top = Math.min(vh - cardH - VIEWPORT_MARGIN, cutout.bottom + TOOLTIP_GAP);
       top = Math.max(VIEWPORT_MARGIN, top);
@@ -409,7 +429,6 @@ export const InteractiveGuidedTour: React.FC<InteractiveGuidedTourProps> = ({
         width={vw}
         height={vh}
         viewBox={`0 0 ${vw} ${vh}`}
-        preserveAspectRatio="none"
       >
         <defs>
           <mask id="guided-tour-spotlight-mask">

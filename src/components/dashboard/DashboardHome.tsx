@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   TrendingUp,
@@ -23,7 +23,10 @@ import {
   ChevronRight,
   HelpCircle,
   Activity,
-  ArrowUpRight
+  ArrowUpRight,
+  Sliders,
+  Crosshair,
+  RotateCcw
 } from 'lucide-react';
 import { UserProfile, UserProgress, PaperPortfolio, Module, Lesson } from '../../types';
 import { getModuleStatus, getNextRecommendedLesson } from '../../data/curriculumData';
@@ -55,6 +58,40 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   const [selectedLockedModule, setSelectedLockedModule] = useState<Module | null>(null);
   const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('NOVA');
+  const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '1Y'>('1D');
+  const [chartVolatility, setChartVolatility] = useState<'normal' | 'high'>('normal');
+  const [showTechnicalSR, setShowTechnicalSR] = useState<boolean>(true);
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+  const [isChartHovered, setIsChartHovered] = useState<boolean>(false);
+  const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null);
+  const dashboardChartSvgRef = useRef<SVGSVGElement | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number }>({ width: 560, height: 180 });
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    const el = chartContainerRef.current;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 50) {
+        setChartDimensions({ width: Math.round(rect.width), height: Math.round(rect.height || 180) });
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleResetChart = () => {
+    setSelectedStockSymbol('NOVA');
+    setChartTimeframe('1D');
+    setChartVolatility('normal');
+    setShowTechnicalSR(true);
+    setHoveredPointIndex(null);
+    setIsChartHovered(false);
+  };
+
   const [challengeAnswer, setChallengeAnswer] = useState<number | null>(null);
   const [challengeSubmitted, setChallengeSubmitted] = useState<boolean>(false);
   const shouldReduceMotion = useReducedMotion();
@@ -193,29 +230,126 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     },
   ];
 
-  // Calculate chart path points for the active stock
-  const minPrice = Math.min(...activeStock.priceHistory.map(p => p.price));
-  const maxPrice = Math.max(...activeStock.priceHistory.map(p => p.price));
+  // Generate dynamic data series for the selected timeframe, stock, and volatility
+  const dynamicChartData = useMemo(() => {
+    const basePrices = activeStock.priceHistory.map((p) => p.price);
+    const lastPrice = activeStock.currentPrice;
+    const volFactor = chartVolatility === 'high' ? 1.9 : 1.0;
+
+    if (chartTimeframe === '1D') {
+      return activeStock.priceHistory.map((p) => {
+        const diff = p.price - (basePrices[0] || lastPrice);
+        return {
+          label: p.time,
+          price: Math.round(((basePrices[0] || lastPrice) + diff * volFactor) * 100) / 100,
+        };
+      });
+    }
+
+    if (chartTimeframe === '1W') {
+      const days = ['Mon 9:15', 'Tue 12:00', 'Wed 14:30', 'Thu 11:15', 'Today Close'];
+      const openRef = basePrices[0] || lastPrice * 0.98;
+      const step = (lastPrice - openRef) / 4;
+      return days.map((day, i) => ({
+        label: day,
+        price: Math.round((openRef + step * i + (Math.sin(i * 1.5) * lastPrice * 0.012 * volFactor)) * 100) / 100,
+      }));
+    }
+
+    if (chartTimeframe === '1M') {
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'];
+      const swingLow = activeStock.low52w ? activeStock.low52w + (lastPrice - activeStock.low52w) * 0.45 : lastPrice * 0.93;
+      const step = (lastPrice - swingLow) / 4;
+      return weeks.map((w, i) => ({
+        label: w,
+        price: Math.round((swingLow + step * i + (Math.cos(i) * lastPrice * 0.015 * volFactor)) * 100) / 100,
+      }));
+    }
+
+    // 1Y Macro
+    const months = ['Q1', 'Q2', 'Q3', 'Q4', 'Now'];
+    const low = activeStock.low52w || lastPrice * 0.85;
+    const high = activeStock.high52w || lastPrice * 1.15;
+    return months.map((m, i) => {
+      const ratio = i / (months.length - 1);
+      const pr = low + (high - low) * (0.35 + 0.55 * ratio + 0.08 * Math.sin(i * 1.4) * volFactor);
+      return {
+        label: m,
+        price: Math.round(pr * 100) / 100,
+      };
+    });
+  }, [activeStock, chartTimeframe, chartVolatility]);
+
+  const minPrice = Math.min(...dynamicChartData.map((p) => p.price));
+  const maxPrice = Math.max(...dynamicChartData.map((p) => p.price));
   const priceRange = maxPrice - minPrice || 1;
 
-  const chartPoints = activeStock.priceHistory.map((p, i) => {
-    const x = (i / (activeStock.priceHistory.length - 1)) * 300;
-    const y = 85 - ((p.price - minPrice) / priceRange) * 65;
-    return { x, y, price: p.price, time: p.time };
+  // Key Support & Resistance bounds
+  const supportPrice = Math.round((minPrice * 0.996) * 100) / 100;
+  const resistancePrice = Math.round((maxPrice * 1.004) * 100) / 100;
+
+  // Real pixel-based dimensions (Guarantees zero oval distortion)
+  const padX = 24;
+  const padTop = 16;
+  const padBottom = 22;
+  const plotWidth = Math.max(chartDimensions.width - padX * 2, 80);
+  const plotHeight = Math.max(chartDimensions.height - padTop - padBottom, 50);
+
+  const chartPoints = dynamicChartData.map((p, i) => {
+    const x = padX + (i / (dynamicChartData.length - 1 || 1)) * plotWidth;
+    const y = padTop + plotHeight - ((p.price - minPrice) / priceRange) * plotHeight;
+    return { x, y, price: p.price, time: p.label };
   });
 
   const pathD = chartPoints.reduce((acc, pt, i) => {
     return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
 
-  const areaD = `${pathD} L 300 95 L 0 95 Z`;
+  const areaD = `${pathD} L ${padX + plotWidth} ${chartDimensions.height - padBottom + 4} L ${padX} ${chartDimensions.height - padBottom + 4} Z`;
+
+  const supportY = padTop + plotHeight - ((supportPrice - minPrice) / priceRange) * plotHeight;
+  const resistanceY = padTop + plotHeight - ((resistancePrice - minPrice) / priceRange) * plotHeight;
+
+  // Active displayed point: hovered point if user is scrubbing, or the latest point
+  const activeDisplayPoint = (isChartHovered && hoveredPointIndex !== null && chartPoints[hoveredPointIndex])
+    ? chartPoints[hoveredPointIndex]
+    : chartPoints[chartPoints.length - 1];
+
+  const firstPrice = dynamicChartData[0]?.price || activeStock.currentPrice;
+  const displayPriceDiff = activeDisplayPoint ? activeDisplayPoint.price - firstPrice : activeStock.change;
+  const displayPricePercent = firstPrice ? ((displayPriceDiff / firstPrice) * 100).toFixed(2) : activeStock.changePercent;
+
+  // Pointer move handler in actual pixel coordinate space
+  const handleChartPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!dashboardChartSvgRef.current) return;
+    const rect = dashboardChartSvgRef.current.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+
+    const clampedX = Math.max(padX, Math.min(padX + plotWidth, clientX));
+    const normalizedRatio = (clampedX - padX) / plotWidth;
+    const closestIdx = Math.max(0, Math.min(chartPoints.length - 1, Math.round(normalizedRatio * (chartPoints.length - 1))));
+
+    setHoveredPointIndex(closestIdx);
+    setCursorCoord({ x: clampedX, y: clientY });
+    setIsChartHovered(true);
+  };
+
+  const handleChartPointerLeave = () => {
+    setIsChartHovered(false);
+    setHoveredPointIndex(null);
+    setCursorCoord(null);
+  };
 
   return (
     <div className="space-y-8 pb-16 animate-in fade-in duration-300">
       {/* =====================================================================
           HEADER BAR: EDITORIAL TITLE & LIVE STATUS
          ===================================================================== */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b theme-border pb-5">
+      <div 
+        data-tour="dashboard-welcome"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b theme-border pb-5"
+      >
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-[#0D6847] dark:text-[#10B981] font-bold uppercase tracking-wider">
@@ -251,7 +385,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       {/* =====================================================================
           SECTION 1 — TOP 4 FINTECH KPI CARDS (References 1, 3, 4)
          ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div 
+        data-tour="dashboard-core-tools"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
         {metricCards.map((card, idx) => (
           <motion.div
             key={card.id}
@@ -300,6 +437,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
          ===================================================================== */}
       {currentLesson && (
         <motion.div
+          data-tour="continue-learning"
           initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15, ease: PREMIUM_EASE }}
@@ -358,7 +496,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
 
           {/* Right Column: 3 Stage Cards Preview (LearnWell Reference 2) */}
-          <div className="lg:col-span-5 grid grid-cols-3 gap-3">
+          <div 
+            data-tour="dashboard-roadmap-matrix"
+            className="lg:col-span-5 grid grid-cols-3 gap-3"
+          >
             {modules.slice(0, 3).map((mod, idx) => {
               const status = getModuleStatus(mod, progress.completedLessons, progress.completedModules);
               const isCompleted = status === 'COMPLETED';
@@ -422,6 +563,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         {/* Left Column (7 cols): Simulated Market Pulse Chart + Daily Challenge */}
         <div className="lg:col-span-7 space-y-6">
           {/* Simulated Intraday Market Curve (Auto Trades Chart style) */}
+          {/* Simulated Intraday Market Curve (Interactive Cursor-Reactive Chart) */}
           <div className="fintech-card p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b theme-border pb-4">
               <div>
@@ -430,62 +572,208 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <h3 className="text-base font-bold font-heading theme-main-text">
                     Simulated Market Pulse
                   </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/20">
+                    Live Reactive
+                  </span>
                 </div>
                 <p className="text-xs theme-secondary-text mt-0.5">
-                  Fictional intraday price action · 9:15 AM - 3:30 PM
+                  Move cursor over chart curve to inspect crosshair prices & patterns.
                 </p>
               </div>
 
-              {/* Stock Selector Tabs */}
-              <div className="flex items-center gap-1 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
-                {FICTIONAL_STOCKS.slice(0, 3).map((stock) => (
+              {/* Stock Selector & Timeframe Bar */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Stock Selector Tabs */}
+                <div className="flex items-center gap-1 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
+                  {FICTIONAL_STOCKS.slice(0, 3).map((stock) => (
+                    <button
+                      key={stock.symbol}
+                      type="button"
+                      onClick={() => setSelectedStockSymbol(stock.symbol)}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold ${
+                        selectedStockSymbol === stock.symbol
+                          ? 'bg-[#0D6847] text-white shadow-xs'
+                          : 'theme-secondary-text hover:theme-main-text'
+                      }`}
+                    >
+                      {stock.symbol}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Timeframe Selector Tabs */}
+                <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
+                  {(['1D', '1W', '1M', '1Y'] as Array<'1D' | '1W' | '1M' | '1Y'>).map((tf) => (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => setChartTimeframe(tf)}
+                      className={`px-2 py-1 rounded-lg transition-all cursor-pointer font-bold text-[11px] ${
+                        chartTimeframe === tf
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'theme-secondary-text hover:theme-main-text'
+                      }`}
+                    >
+                      {tf}
+                    </button>
+                  ))}
+                </div>
+
+                {/* S/R Boundaries Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowTechnicalSR((prev) => !prev)}
+                  className={`px-2 py-1 rounded-xl border text-[11px] font-mono font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                    showTechnicalSR
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
+                      : 'theme-border theme-surface-subtle theme-secondary-text'
+                  }`}
+                  title="Toggle Support & Resistance Boundary Lines"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>S/R</span>
+                </button>
+
+                {/* Volatility Setting (Prompt Requirement 2) */}
+                <div className="flex items-center gap-0.5 p-0.5 rounded-xl theme-surface-subtle border theme-border font-mono text-xs">
                   <button
-                    key={stock.symbol}
                     type="button"
-                    onClick={() => setSelectedStockSymbol(stock.symbol)}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold ${
-                      selectedStockSymbol === stock.symbol
-                        ? 'bg-[#0D6847] text-white shadow-xs'
+                    onClick={() => setChartVolatility('normal')}
+                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                      chartVolatility === 'normal'
+                        ? 'bg-emerald-600 text-white shadow-xs'
                         : 'theme-secondary-text hover:theme-main-text'
                     }`}
+                    title="Normal Volatility"
                   >
-                    {stock.symbol}
+                    1x
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setChartVolatility('high')}
+                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                      chartVolatility === 'high'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'theme-secondary-text hover:theme-main-text'
+                    }`}
+                    title="High Volatility Shock"
+                  >
+                    2x Vol
+                  </button>
+                </div>
+
+                {/* Working Chart Reset Button */}
+                <button
+                  type="button"
+                  onClick={handleResetChart}
+                  className="px-2 py-1 rounded-xl border theme-border theme-surface-subtle hover:theme-card theme-secondary-text hover:theme-main-text text-[11px] font-mono transition-all cursor-pointer flex items-center gap-1"
+                  title="Reset Chart Parameters"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
               </div>
             </div>
 
-            {/* Price Quote Header */}
+            {/* Price Quote Header with Live Scrub Indicator */}
             <div className="flex items-baseline justify-between">
               <div>
-                <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
-                  ₹{activeStock.currentPrice.toFixed(2)}
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl sm:text-3xl font-extrabold font-mono theme-main-text tracking-tight">
+                    ₹{activeDisplayPoint.price.toFixed(2)}
+                  </div>
+                  {isChartHovered && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30 animate-in fade-in">
+                      {activeDisplayPoint.time}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs theme-muted-text mt-0.5">
-                  {activeStock.name} · P/E {activeStock.peRatio}
+                  {activeStock.name} · P/E {activeStock.peRatio} · {chartTimeframe} Window
                 </div>
               </div>
 
               <div className="text-right">
                 <span className={`text-sm font-mono font-bold flex items-center justify-end gap-1 ${
-                  activeStock.change >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                  displayPriceDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'
                 }`}>
-                  {activeStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                  {activeStock.change >= 0 ? '+' : ''}₹{activeStock.change.toFixed(2)} ({activeStock.changePercent}%)
+                  {displayPriceDiff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {displayPriceDiff >= 0 ? '+' : ''}₹{displayPriceDiff.toFixed(2)} ({displayPricePercent}%)
                 </span>
-                <span className="text-[11px] font-mono theme-muted-text">Intraday Simulated</span>
+                <span className="text-[11px] font-mono theme-muted-text">
+                  {isChartHovered ? 'Inspecting Coordinate' : `${chartTimeframe} Simulated`}
+                </span>
               </div>
             </div>
 
-            {/* Glowing SVG Area Chart (Reference 4 Style) */}
-            <div className="w-full h-44 relative pt-2">
-              <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+            {/* Glowing SVG Area Chart with Crosshair & Cursor Movement (Phase 1 Isotropic Scaling & Perfect Circles) */}
+            <div ref={chartContainerRef} className="w-full h-48 relative pt-2">
+              <svg 
+                ref={dashboardChartSvgRef}
+                viewBox={`0 0 ${chartDimensions.width} ${chartDimensions.height}`}
+                className="w-full h-full overflow-visible cursor-crosshair touch-none select-none"
+                onPointerMove={handleChartPointerMove}
+                onPointerLeave={handleChartPointerLeave}
+                onPointerDown={handleChartPointerMove}
+              >
                 <defs>
                   <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
                   </linearGradient>
+                  <filter id="dashPointGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#10B981" floodOpacity="0.8" />
+                  </filter>
                 </defs>
+
+                {/* Optional Support & Resistance Technical Levels */}
+                {showTechnicalSR && (
+                  <g className="transition-opacity duration-200">
+                    {/* Resistance Line */}
+                    <line
+                      x1={padX}
+                      y1={resistanceY}
+                      x2={padX + plotWidth}
+                      y2={resistanceY}
+                      stroke="#F43F5E"
+                      strokeWidth="1.2"
+                      strokeDasharray="3 3"
+                      opacity="0.65"
+                    />
+                    <text 
+                      x={padX + plotWidth - 68} 
+                      y={Math.max(14, resistanceY - 4)} 
+                      fill="#F43F5E" 
+                      fontSize="9" 
+                      fontFamily="monospace" 
+                      fontWeight="bold"
+                    >
+                      RES ₹{resistancePrice}
+                    </text>
+
+                    {/* Support Line */}
+                    <line
+                      x1={padX}
+                      y1={supportY}
+                      x2={padX + plotWidth}
+                      y2={supportY}
+                      stroke="#10B981"
+                      strokeWidth="1.2"
+                      strokeDasharray="3 3"
+                      opacity="0.65"
+                    />
+                    <text 
+                      x={padX + plotWidth - 68} 
+                      y={Math.min(chartDimensions.height - padBottom, supportY + 12)} 
+                      fill="#10B981" 
+                      fontSize="9" 
+                      fontFamily="monospace" 
+                      fontWeight="bold"
+                    >
+                      SUP ₹{supportPrice}
+                    </text>
+                  </g>
+                )}
 
                 {/* Area Gradient Fill */}
                 <path d={areaD} fill="url(#chartGradient)" />
@@ -498,28 +786,72 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="transition-all duration-300"
                 />
 
-                {/* Active Latest Point Dot */}
-                {chartPoints.length > 0 && (
+                {/* Regular Points along the curve - Guaranteed true circles */}
+                {chartPoints.map((pt, i) => (
                   <circle
-                    cx={chartPoints[chartPoints.length - 1].x}
-                    cy={chartPoints[chartPoints.length - 1].y}
-                    r="4.5"
-                    fill="#10B981"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    className="animate-pulse"
+                    key={i}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={hoveredPointIndex === i ? 5.5 : 2.5}
+                    fill={hoveredPointIndex === i ? '#FFFFFF' : '#10B981'}
+                    stroke={hoveredPointIndex === i ? '#10B981' : '#FFFFFF'}
+                    strokeWidth={hoveredPointIndex === i ? 2.5 : 1}
+                    className="transition-all duration-150"
                   />
+                ))}
+
+                {/* Interactive Crosshair Tracking on Cursor Movement */}
+                {isChartHovered && cursorCoord && activeDisplayPoint && (
+                  <g className="pointer-events-none transition-opacity duration-150">
+                    {/* Vertical Time Guideline */}
+                    <line
+                      x1={activeDisplayPoint.x}
+                      y1={padTop}
+                      x2={activeDisplayPoint.x}
+                      y2={chartDimensions.height - padBottom}
+                      stroke="#10B981"
+                      strokeWidth="1"
+                      strokeDasharray="2 2"
+                      opacity="0.75"
+                    />
+                    {/* Horizontal Price Guideline */}
+                    <line
+                      x1={padX}
+                      y1={activeDisplayPoint.y}
+                      x2={padX + plotWidth}
+                      y2={activeDisplayPoint.y}
+                      stroke="#10B981"
+                      strokeWidth="1"
+                      strokeDasharray="2 2"
+                      opacity="0.75"
+                    />
+                    {/* Active Highlighted Pulse Marker - Guaranteed true circle */}
+                    <circle
+                      cx={activeDisplayPoint.x}
+                      cy={activeDisplayPoint.y}
+                      r={6.5}
+                      fill="#10B981"
+                      stroke="#FFFFFF"
+                      strokeWidth={2.5}
+                      style={{ filter: 'url(#dashPointGlow)' }}
+                    />
+                  </g>
                 )}
               </svg>
 
-              {/* Time Axis Labels */}
+              {/* Time Axis Labels Synchronized with dynamic data */}
               <div className="flex justify-between items-center text-[10px] font-mono theme-muted-text pt-2 border-t theme-border mt-1">
-                <span>09:15 AM</span>
-                <span>11:45 AM</span>
-                <span>01:30 PM</span>
-                <span>03:30 PM</span>
+                {dynamicChartData.map((pt, idx) => (
+                  <span 
+                    key={idx}
+                    className={hoveredPointIndex === idx ? 'text-emerald-500 font-bold' : undefined}
+                  >
+                    {pt.label}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -598,8 +930,50 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        {/* Right Column (5 cols): Workspace Shortcuts & Milestones */}
+        {/* Right Column (5 cols): AI Mentor Entry + Shortcuts & Milestones */}
         <div className="lg:col-span-5 space-y-6">
+          {/* Compact AI Mentor Dashboard Entry Point (Prompt Requirement 3) */}
+          <div 
+            data-tour="dashboard-ai-companion"
+            className="fintech-card p-5 border border-emerald-500/25 bg-gradient-to-br from-[#0D6847]/10 via-emerald-500/5 to-transparent relative overflow-hidden transition-all duration-300 hover:border-emerald-500/40 group"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0D6847] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <Bot className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold font-heading theme-main-text">
+                      Your AI Learning Companion
+                    </h3>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                      24/7 AI
+                    </span>
+                  </div>
+                  <p className="text-xs theme-secondary-text leading-relaxed">
+                    Have a question about the market? Learn concepts and understand charts with your AI Mentor.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t theme-border flex items-center justify-between">
+              <span className="text-[11px] font-mono theme-muted-text flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Zero jargon · Instant explanations</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenMentor()}
+                className="px-3.5 py-1.5 rounded-xl bg-[#0D6847] hover:bg-[#095237] text-white text-xs font-bold font-mono transition-all flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
+              >
+                <span>Ask AI Mentor</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+
           {/* Workspace Shortcuts Grid */}
           <div className="fintech-card p-6 space-y-4">
             <div className="flex items-center justify-between border-b theme-border pb-3">
