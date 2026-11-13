@@ -32,7 +32,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({
               <Flame className="w-4 h-4 fill-amber-500 text-amber-600" />
             </div>
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+              <div className="text-[10px] font-mono uppercase tracking-wider theme-muted-text font-semibold">
                 Daily Habit
               </div>
               <h3 className="text-base font-bold theme-main-text font-heading flex items-center gap-1.5 leading-none">
@@ -42,7 +42,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({
           </div>
 
           <div className="text-right">
-            <span className="text-[11px] font-mono text-slate-400 font-medium block">
+            <span className="text-[11px] font-mono theme-muted-text font-medium block">
               Best: <strong className="theme-main-text font-bold">{longest} days</strong>
             </span>
           </div>

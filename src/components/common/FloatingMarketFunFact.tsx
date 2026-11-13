@@ -62,11 +62,11 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-50 max-w-[340px] sm:max-w-[380px] w-full"
+          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-30 max-w-[340px] sm:max-w-[380px] w-full"
           role="complementary"
           aria-label="Daily Market Fun Fact"
         >
-          <div className="fintech-card p-4 rounded-2xl shadow-2xl border border-emerald-500/30 bg-slate-900/95 dark:bg-black/95 text-white backdrop-blur-md relative overflow-hidden transition-all duration-200">
+          <div className="fintech-card p-4 rounded-2xl shadow-xl border border-emerald-600/25 dark:border-emerald-500/30 bg-white/95 dark:bg-[#0D1117]/95 text-slate-900 dark:text-white backdrop-blur-md relative overflow-hidden transition-all duration-200">
             {/* Subtle glow backdrop */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -74,15 +74,15 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
             <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-[#0D6847] text-white flex items-center justify-center shrink-0 shadow-sm">
-                  <Lightbulb className="w-4 h-4 text-emerald-300" />
+                  <Lightbulb className="w-4 h-4 text-emerald-200" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#0D6847] dark:text-emerald-400">
                       DID YOU KNOW?
                     </span>
-                    <span className="text-slate-500 text-xs">·</span>
-                    <span className="text-[10px] font-mono text-slate-400 truncate">
+                    <span className="text-slate-400 dark:text-slate-500 text-xs">·</span>
+                    <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
                       {currentFact.categoryLabel}
                     </span>
                   </div>
@@ -93,7 +93,7 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="w-6 h-6 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+                className="w-6 h-6 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
                 aria-label="Dismiss fun fact"
                 title="Dismiss"
               >
@@ -103,10 +103,10 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
 
             {/* Fact Body */}
             <div className="space-y-1.5 relative z-10">
-              <h4 className="text-xs font-bold font-heading text-white leading-snug">
+              <h4 className="text-xs font-bold font-heading text-slate-900 dark:text-white leading-snug">
                 {currentFact.title}
               </h4>
-              <p className="text-[12px] text-slate-200 leading-relaxed">
+              <p className="text-[12px] text-slate-700 dark:text-slate-200 leading-relaxed">
                 {currentFact.fact}
               </p>
 
@@ -116,10 +116,10 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="pt-2 text-[11px] text-slate-400 leading-relaxed border-t border-slate-800"
+                  className="pt-2 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-200 dark:border-slate-800"
                 >
                   <p className="mb-1.5">{currentFact.explanation}</p>
-                  <div className="text-[10px] font-mono text-slate-500">
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                     Source: {currentFact.sourceRef}
                   </div>
                 </motion.div>
@@ -127,11 +127,11 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
             </div>
 
             {/* Bottom Actions */}
-            <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono relative z-10">
+            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono relative z-10">
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-1 cursor-pointer"
+                className="text-[#0D6847] dark:text-emerald-400 hover:text-[#095237] dark:hover:text-emerald-300 transition-colors font-semibold flex items-center gap-1 cursor-pointer"
               >
                 <span>{isExpanded ? 'Less detail' : 'Why this matters'}</span>
                 <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -140,10 +140,10 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
               <button
                 type="button"
                 onClick={handleNextFact}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1"
                 title="View another verified market fact"
               >
-                <Sparkles className="w-3 h-3 text-amber-400" />
+                <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                 <span>Next fact</span>
               </button>
             </div>
@@ -158,14 +158,14 @@ export const FloatingMarketFunFact: React.FC<FloatingMarketFunFactProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
           onClick={() => setIsVisible(true)}
-          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/95 dark:bg-black/95 border border-emerald-500/40 text-emerald-400 text-xs font-medium shadow-xl hover:bg-slate-800 hover:border-emerald-500/70 transition cursor-pointer backdrop-blur-md group"
+          className="fixed bottom-24 right-4 md:bottom-24 md:right-6 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#0D1117]/95 border border-emerald-600/30 dark:border-emerald-500/40 text-[#0D6847] dark:text-emerald-400 text-xs font-medium shadow-lg hover:bg-emerald-50 dark:hover:bg-slate-800 hover:border-emerald-600/60 transition cursor-pointer backdrop-blur-md group"
           title="Open Daily Market Fact"
           aria-label="Open Daily Market Fact"
         >
           <div className="w-5 h-5 rounded-full bg-[#0D6847] text-white flex items-center justify-center shrink-0">
-            <Lightbulb className="w-3 h-3 text-emerald-300" />
+            <Lightbulb className="w-3 h-3 text-emerald-200" />
           </div>
-          <span className="font-mono text-[11px] font-semibold text-slate-200 group-hover:text-white">
+          <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200 group-hover:text-[#0D6847] dark:group-hover:text-white">
             Market Fact
           </span>
         </motion.button>

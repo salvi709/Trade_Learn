@@ -27,6 +27,7 @@ import {
   Sliders,
   Crosshair,
   RotateCcw,
+  RefreshCw,
   Newspaper
 } from 'lucide-react';
 import { UserProfile, UserProgress, PaperPortfolio, Module, Lesson, MarketNewsItem } from '../../types';
@@ -74,7 +75,39 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number }>({ width: 560, height: 210 });
   const [dashboardNews, setDashboardNews] = useState<MarketNewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState<boolean>(true);
+  const [newsRefreshing, setNewsRefreshing] = useState<boolean>(false);
   const [activeNewsArticle, setActiveNewsArticle] = useState<MarketNewsItem | null>(null);
+  const newsLastDayRef = useRef<string>(
+    (() => {
+      try {
+        return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      } catch {
+        return new Date().toISOString().slice(0, 10);
+      }
+    })()
+  );
+  const newsLastFetchedRef = useRef<number>(0);
+
+  const loadDashboardNews = async (forceRefresh = false, silent = false) => {
+    if (forceRefresh && !silent) setNewsRefreshing(true);
+    try {
+      const items = await fetchDashboardNews(forceRefresh);
+      if (items && items.length > 0) {
+        setDashboardNews(items);
+        newsLastFetchedRef.current = Date.now();
+        try {
+          newsLastDayRef.current = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        } catch {
+          newsLastDayRef.current = new Date().toISOString().slice(0, 10);
+        }
+      }
+    } catch (err) {
+      console.warn('Dashboard news fetch warning:', err);
+    } finally {
+      setNewsLoading(false);
+      setNewsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -82,14 +115,32 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       .then((items) => {
         if (isMounted && items && items.length > 0) {
           setDashboardNews(items);
+          newsLastFetchedRef.current = Date.now();
         }
       })
       .catch((err) => console.warn('Dashboard news fetch warning:', err))
       .finally(() => {
         if (isMounted) setNewsLoading(false);
       });
+
+    const checkDailySync = () => {
+      let todayKey = '';
+      try {
+        todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      } catch {
+        todayKey = new Date().toISOString().slice(0, 10);
+      }
+      if (todayKey !== newsLastDayRef.current || Date.now() - newsLastFetchedRef.current >= 10 * 60 * 1000) {
+        if (isMounted) loadDashboardNews(true, true);
+      }
+    };
+
+    const intervalId = window.setInterval(checkDailySync, 10 * 60 * 1000);
+    window.addEventListener('focus', checkDailySync);
     return () => {
       isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', checkDailySync);
     };
   }, []);
 
@@ -700,13 +751,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             <div ref={chartContainerRef} className="w-full h-56 relative pt-2">
               {/* Detailed Inspection Tooltip HUD Floating Badge */}
               {isChartHovered && activeDisplayPoint && (
-                <div className="absolute top-3 left-4 z-10 pointer-events-none bg-slate-900/90 dark:bg-black/90 text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
-                  <span className="font-bold text-white text-xs">₹{activeDisplayPoint.price.toFixed(2)}</span>
-                  <span className={`font-semibold ${displayPriceDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <div className="absolute top-3 left-4 z-10 pointer-events-none bg-white/95 dark:bg-black/90 text-slate-900 dark:text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-600/30 dark:border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">₹{activeDisplayPoint.price.toFixed(2)}</span>
+                  <span className={`font-semibold ${displayPriceDiff >= 0 ? 'text-[#0D6847] dark:text-emerald-400' : 'text-[#B82E3B] dark:text-rose-400'}`}>
                     {displayPriceDiff >= 0 ? '+' : ''}{displayPricePercent}%
                   </span>
-                  <span className="text-slate-400 text-[10px]">{activeDisplayPoint.fullDate}</span>
-                  <span className="text-slate-400 text-[10px] border-l border-slate-700 pl-2">
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px]">{activeDisplayPoint.fullDate}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px] border-l border-slate-200 dark:border-slate-700 pl-2">
                     H: ₹{chartSeries.periodHigh.toFixed(2)} · L: ₹{chartSeries.periodLow.toFixed(2)}
                   </span>
                 </div>
@@ -1075,105 +1126,165 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       </div>
 
       {/* =====================================================================
-          MARKET NEWS PREVIEW — WHAT'S MOVING THE MARKET?
+          MARKET NEWS PREVIEW — EDITORIAL DAILY BRIEFING
          ===================================================================== */}
-      <div className="fintech-card p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b theme-border pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-[#0D6847]/20 border border-[#0D6847]/40 text-emerald-400">
+      <div className="fintech-card p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b theme-border pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-[#0D6847]/10 dark:bg-emerald-500/15 border border-[#0D6847]/20 dark:border-emerald-500/30 text-[#0D6847] dark:text-emerald-400">
               <Newspaper className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-bold font-heading theme-main-text">
-                  Market News – What&apos;s Moving the Market?
+                  Daily Market Briefing
                 </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
-                  Live Wire
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-[#0D6847] dark:text-emerald-400 border border-emerald-600/20 dark:border-emerald-500/30 font-bold uppercase tracking-wider">
+                  {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} &bull; Live
                 </span>
               </div>
-              <p className="text-[11px] theme-muted-text">
-                Real-time financial press feeds, monetary decisions, and sector movers
+              <p className="text-[11px] theme-muted-text mt-0.5">
+                Auto-synced daily financial headlines, RBI policy signals, and equity movers
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onNavigateTab('market_news')}
-            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer transition-colors group"
-          >
-            <span>Explore Market News Center</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </button>
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => loadDashboardNews(true)}
+              disabled={newsRefreshing}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg theme-surface-subtle border theme-border text-[11px] font-semibold theme-secondary-text hover:theme-main-text hover:border-[#0D6847]/40 transition cursor-pointer disabled:opacity-50"
+              title="Sync Latest Headlines"
+            >
+              <RefreshCw className={`w-3 h-3 ${newsRefreshing ? 'animate-spin text-[#0D6847] dark:text-emerald-400' : ''}`} />
+              <span>{newsRefreshing ? 'Syncing' : 'Sync'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigateTab('market_news')}
+              className="text-xs font-bold text-[#0D6847] dark:text-emerald-400 hover:underline flex items-center gap-1.5 cursor-pointer transition-colors group"
+            >
+              <span>Explore Market News Center</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         </div>
 
-        {/* Stories Grid */}
+        {/* 2-Column Editorial Split: Lead Story + 3-Story Live Wire List */}
         {newsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-4 rounded-xl theme-surface-subtle border theme-border animate-pulse space-y-2.5">
-                <div className="h-3 w-20 bg-neutral-800 rounded" />
-                <div className="h-4 w-5/6 bg-neutral-800 rounded" />
-                <div className="h-3 w-full bg-neutral-900 rounded" />
-                <div className="h-3 w-16 bg-neutral-800 rounded mt-2" />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-5 p-5 rounded-2xl theme-surface-subtle border theme-border animate-pulse space-y-3">
+              <div className="h-3 w-24 bg-slate-200 dark:bg-neutral-800 rounded" />
+              <div className="h-5 w-5/6 bg-slate-200 dark:bg-neutral-800 rounded" />
+              <div className="h-3 w-full bg-slate-200/70 dark:bg-neutral-900 rounded" />
+              <div className="h-3 w-4/6 bg-slate-200/70 dark:bg-neutral-900 rounded" />
+            </div>
+            <div className="lg:col-span-7 rounded-2xl theme-surface-subtle border theme-border divide-y theme-border animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 space-y-2">
+                  <div className="h-3 w-28 bg-slate-200 dark:bg-neutral-800 rounded" />
+                  <div className="h-4 w-5/6 bg-slate-200 dark:bg-neutral-800 rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {(dashboardNews.length > 0 ? dashboardNews.slice(0, 4) : []).map((story) => (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+            {/* Left 5 Cols: Lead Story Spotlight */}
+            {dashboardNews[0] && (
               <div
-                key={story.id}
-                onClick={() => setActiveNewsArticle(story)}
-                className="p-4 rounded-xl theme-surface-subtle border theme-border hover:border-emerald-500/50 hover:bg-neutral-900/60 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between space-y-3"
+                onClick={() => setActiveNewsArticle(dashboardNews[0])}
+                className="lg:col-span-5 p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-600/20 dark:border-emerald-500/30 hover:border-[#0D6847]/60 dark:hover:border-emerald-400/50 hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between space-y-4"
               >
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                    <span className="font-semibold text-neutral-300 truncate max-w-[130px]">
-                      {story.publisher}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="font-bold text-[#0D6847] dark:text-emerald-400 uppercase tracking-wider">
+                      Lead Story &bull; {dashboardNews[0].publisher}
                     </span>
-                    <span className="text-neutral-500 font-mono text-[10px]">
-                      {story.timeAgo}
-                    </span>
+                    <span className="theme-muted-text">{dashboardNews[0].timeAgo}</span>
                   </div>
 
-                  <h4 className="text-xs font-semibold theme-main-text group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
-                    {story.title}
+                  <h4 className="text-sm sm:text-base font-bold theme-main-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400 transition-colors leading-snug line-clamp-3">
+                    {dashboardNews[0].title}
                   </h4>
 
-                  <p className="text-[11px] theme-secondary-text line-clamp-2 leading-relaxed">
-                    {story.summary}
+                  <p className="text-xs theme-secondary-text line-clamp-3 leading-relaxed">
+                    {dashboardNews[0].summary}
                   </p>
                 </div>
 
-                <div className="pt-2 border-t theme-border flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1 overflow-hidden">
-                    {story.symbols && story.symbols.length > 0 ? (
-                      story.symbols.slice(0, 2).map((s) => (
-                        <span key={s} className="font-mono text-[10px] text-neutral-400">
+                <div className="pt-3 border-t border-emerald-600/15 dark:border-emerald-500/20 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 font-mono">
+                    {dashboardNews[0].symbols && dashboardNews[0].symbols.length > 0 ? (
+                      dashboardNews[0].symbols.slice(0, 3).map((s) => (
+                        <span key={s} className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-black/30 border theme-border text-[10px] font-semibold theme-main-text">
                           ${s}
                         </span>
                       ))
                     ) : (
-                      <span className="text-[10px] text-neutral-500">Market</span>
+                      <span className="text-[10px] theme-muted-text">Broad Market</span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px]">
-                    {story.sentiment === 'POSITIVE' && (
-                      <span className="text-emerald-400 font-medium">Bullish</span>
-                    )}
-                    {story.sentiment === 'NEGATIVE' && (
-                      <span className="text-rose-400 font-medium">Bearish</span>
-                    )}
-                    {story.sentiment === 'NEUTRAL' && (
-                      <span className="text-neutral-500 font-medium">Neutral</span>
-                    )}
-                  </div>
+                  <span className="font-bold text-[#0D6847] dark:text-emerald-400 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                    Read Brief <ArrowUpRight className="w-3.5 h-3.5" />
+                  </span>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Right 7 Cols: Clean Hairline-Divided Wire List */}
+            <div className="lg:col-span-7 rounded-2xl theme-surface-subtle border theme-border divide-y theme-border overflow-hidden flex flex-col justify-between">
+              {(dashboardNews.length > 1 ? dashboardNews.slice(1, 4) : dashboardNews.slice(0, 3)).map((story, idx) => (
+                <div
+                  key={story.id}
+                  onClick={() => setActiveNewsArticle(story)}
+                  className="p-4 hover:bg-white dark:hover:bg-white/[0.04] transition-colors cursor-pointer group flex items-start justify-between gap-3 flex-1"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className="font-mono text-xs font-bold theme-muted-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400 pt-0.5 shrink-0">
+                      0{idx + 2}
+                    </span>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 text-[11px] font-mono">
+                        <span className="font-semibold theme-secondary-text truncate">
+                          {story.publisher}
+                        </span>
+                        <span className="theme-muted-text">&bull;</span>
+                        <span className="theme-muted-text">{story.timeAgo}</span>
+                      </div>
+                      <h4 className="text-xs sm:text-[13px] font-bold theme-main-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400 transition-colors line-clamp-1 leading-snug">
+                        {story.title}
+                      </h4>
+                      <p className="text-[11px] theme-secondary-text line-clamp-1 leading-relaxed">
+                        {story.summary}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex flex-col items-end justify-between self-stretch">
+                    {story.sentiment === 'POSITIVE' && (
+                      <span className="text-[10px] font-mono font-bold text-[#0D6847] dark:text-emerald-400">
+                        Bullish
+                      </span>
+                    )}
+                    {story.sentiment === 'NEGATIVE' && (
+                      <span className="text-[10px] font-mono font-bold text-[#B82E3B] dark:text-rose-400">
+                        Bearish
+                      </span>
+                    )}
+                    {story.sentiment === 'NEUTRAL' && (
+                      <span className="text-[10px] font-mono font-medium theme-muted-text">
+                        Neutral
+                      </span>
+                    )}
+                    <ArrowUpRight className="w-3.5 h-3.5 theme-muted-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

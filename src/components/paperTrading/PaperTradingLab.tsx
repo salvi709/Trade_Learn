@@ -465,13 +465,13 @@ export const PaperTradingLab: React.FC<PaperTradingProps> = ({
                     <>
                       {/* Floating Inspection Tooltip HUD */}
                       {chartHovered && (
-                        <div className="absolute top-3 left-4 z-10 pointer-events-none bg-slate-900/90 dark:bg-black/90 text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
-                          <span className="font-bold text-white text-xs">₹{activeHoverPoint.price.toFixed(2)}</span>
-                          <span className={`font-semibold ${curDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <div className="absolute top-3 left-4 z-10 pointer-events-none bg-white/95 dark:bg-black/90 text-slate-900 dark:text-white backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-600/30 dark:border-emerald-500/40 shadow-lg font-mono text-[11px] flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">₹{activeHoverPoint.price.toFixed(2)}</span>
+                          <span className={`font-semibold ${curDiff >= 0 ? 'text-[#0D6847] dark:text-emerald-400' : 'text-[#B82E3B] dark:text-rose-400'}`}>
                             {curDiff >= 0 ? '+' : ''}{curPct}%
                           </span>
-                          <span className="text-slate-400 text-[10px]">{activeHoverPoint.fullDate}</span>
-                          <span className="text-slate-400 text-[10px] border-l border-slate-700 pl-2">
+                          <span className="text-slate-500 dark:text-slate-400 text-[10px]">{activeHoverPoint.fullDate}</span>
+                          <span className="text-slate-500 dark:text-slate-400 text-[10px] border-l border-slate-200 dark:border-slate-700 pl-2">
                             H: ₹{chartSeries.periodHigh.toFixed(2)} · L: ₹{chartSeries.periodLow.toFixed(2)}
                           </span>
                         </div>

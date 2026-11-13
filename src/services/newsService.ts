@@ -44,9 +44,10 @@ export async function fetchMarketNews(options: FetchNewsOptions = {}): Promise<M
   }
 }
 
-export async function fetchDashboardNews(): Promise<MarketNewsItem[]> {
+export async function fetchDashboardNews(forceRefresh = false): Promise<MarketNewsItem[]> {
   try {
-    const res = await fetch('/api/news/dashboard', {
+    const url = forceRefresh ? '/api/news/dashboard?refresh=true' : '/api/news/dashboard';
+    const res = await fetch(url, {
       headers: {
         Accept: 'application/json',
       },

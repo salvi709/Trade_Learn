@@ -68,30 +68,30 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
       {/* Strict Zero-Cost Policy Banner (Requirement 1, 13, 14) */}
       <div className={`p-4 rounded-2xl border ${
         isQuotaExhausted 
-          ? 'border-amber-500/40 bg-amber-500/10 text-amber-300' 
-          : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+          ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-200' 
+          : 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-950 dark:text-emerald-100'
       } flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs`}>
         <div className="flex items-start gap-3">
           {isQuotaExhausted ? (
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           ) : (
-            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-5 h-5 text-[#0D6847] dark:text-emerald-400 shrink-0 mt-0.5" />
           )}
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-sm tracking-wide text-white">
+              <span className="font-bold text-sm tracking-wide text-slate-900 dark:text-white">
                 STRICT ₹0.00 BUDGET — ZERO-COST AI INFRASTRUCTURE
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/10 border border-white/20 text-white">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#0D6847] text-white dark:bg-white/10 dark:border dark:border-white/20">
                 Free-Tier Only
               </span>
               {isQuotaExhausted && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-200/70 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-400 dark:border-amber-500/40">
                   Daily Quota Limit Active
                 </span>
               )}
             </div>
-            <p className="text-xs text-white/80 leading-relaxed">
+            <p className="text-xs text-slate-700 dark:text-white/80 leading-relaxed">
               Operating strictly on official Google AI Studio free tier. All paid models, auto-billing, and prepaid credits are permanently disabled.
               Daily provider limit is 20 requests/day shared across models.
             </p>
@@ -100,7 +100,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
 
         <div className="shrink-0 flex items-center gap-2 text-xs font-mono">
           <span className="theme-muted-text">Total Spend:</span>
-          <span className="font-bold text-emerald-400 text-sm">₹0.00 INR</span>
+          <span className="font-bold text-[#0D6847] dark:text-emerald-400 text-sm">₹0.00 INR</span>
           <span className="text-[11px] theme-muted-text">($0.00 USD)</span>
         </div>
       </div>
@@ -113,7 +113,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Total AI Requests
             </span>
-            <Bot className="w-4 h-4 text-emerald-500" />
+            <Bot className="w-4 h-4 text-[#0D6847] dark:text-emerald-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
             {totalAiRequests}
@@ -129,9 +129,9 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Learning AI
             </span>
-            <GraduationCap className="w-4 h-4 text-emerald-500" />
+            <GraduationCap className="w-4 h-4 text-[#0D6847] dark:text-emerald-500" />
           </div>
-          <div className="text-2xl font-bold font-heading text-emerald-400 tabular-nums">
+          <div className="text-2xl font-bold font-heading text-[#0D6847] dark:text-emerald-400 tabular-nums">
             {learningAiRequests}
           </div>
           <div className="text-[11px] theme-muted-text">
@@ -145,9 +145,9 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Admin AI
             </span>
-            <Sliders className="w-4 h-4 text-blue-500" />
+            <Sliders className="w-4 h-4 text-blue-600 dark:text-blue-500" />
           </div>
-          <div className="text-2xl font-bold font-heading text-blue-400 tabular-nums">
+          <div className="text-2xl font-bold font-heading text-blue-700 dark:text-blue-400 tabular-nums">
             {adminAiRequests}
           </div>
           <div className="text-[11px] theme-muted-text">
@@ -161,12 +161,12 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Successful Requests
             </span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-4 h-4 text-[#0D6847] dark:text-emerald-500" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
             {successfulRequests}
           </div>
-          <div className="text-[11px] text-emerald-500 font-semibold">
+          <div className="text-[11px] text-[#0D6847] dark:text-emerald-500 font-semibold">
             {totalAiRequests > 0 ? Math.round((successfulRequests / totalAiRequests) * 100) : 100}% resolution rate
           </div>
         </div>
@@ -177,9 +177,9 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Failed Requests
             </span>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
+            <AlertTriangle className="w-4 h-4 text-[#B82E3B] dark:text-rose-500" />
           </div>
-          <div className="text-2xl font-bold font-heading text-rose-400 tabular-nums">
+          <div className="text-2xl font-bold font-heading text-[#B82E3B] dark:text-rose-400 tabular-nums">
             {failedRequests}
           </div>
           <div className="text-[11px] theme-muted-text">
@@ -193,12 +193,12 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Quota-Exhausted
             </span>
-            <Zap className="w-4 h-4 text-amber-500" />
+            <Zap className="w-4 h-4 text-amber-600 dark:text-amber-500" />
           </div>
-          <div className="text-2xl font-bold font-heading text-amber-400 tabular-nums">
+          <div className="text-2xl font-bold font-heading text-amber-700 dark:text-amber-400 tabular-nums">
             {quotaExhaustedRequests}
           </div>
-          <div className="text-[11px] text-amber-400 font-medium">
+          <div className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
             429 / Daily limit hits intercepted
           </div>
         </div>
@@ -209,7 +209,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Image Analyses
             </span>
-            <Paperclip className="w-4 h-4 text-purple-400" />
+            <Paperclip className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text tabular-nums">
             {imageAnalysisRequests}
@@ -225,7 +225,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
             <span className="text-xs font-medium theme-muted-text uppercase tracking-wider">
               Avg Response Time
             </span>
-            <Clock className="w-4 h-4 text-teal-400" />
+            <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
           <div className="text-2xl font-bold font-heading theme-main-text font-mono tabular-nums">
             {avgResponseTimeMs} <span className="text-xs font-normal theme-muted-text">ms</span>
@@ -241,7 +241,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="space-y-0.5">
             <h3 className="font-heading font-bold text-base theme-main-text flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-500" />
+              <Sparkles className="w-4 h-4 text-[#0D6847] dark:text-emerald-500" />
               Active Free-Tier AI Model & Quota Controller
             </h3>
             <p className="text-xs theme-muted-text">
@@ -251,12 +251,12 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
 
           <div className="flex items-center gap-2">
             {isQuotaExhausted ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 Circuit Breaker Active ({quotaResetEta || 'Reset Pending'})
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-500/15 text-[#0D6847] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Free Tier Active (20 RPD cap)
               </span>
@@ -267,7 +267,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="p-3 rounded-xl theme-surface-subtle border theme-border space-y-1">
             <span className="theme-muted-text">Configured Free Model</span>
-            <div className="font-mono font-bold text-emerald-400">{activeModel}</div>
+            <div className="font-mono font-bold text-[#0D6847] dark:text-emerald-400">{activeModel}</div>
             <span className="text-[10px] theme-muted-text">Configurable via GEMINI_MODEL</span>
           </div>
 
@@ -285,7 +285,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
 
           <div className="p-3 rounded-xl theme-surface-subtle border theme-border space-y-1">
             <span className="theme-muted-text">API Spend & Overages</span>
-            <div className="font-mono font-bold text-emerald-400">₹0.00 (Zero Cost)</div>
+            <div className="font-mono font-bold text-[#0D6847] dark:text-emerald-400">₹0.00 (Zero Cost)</div>
             <span className="text-[10px] theme-muted-text">No payment details attached</span>
           </div>
         </div>
@@ -312,7 +312,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
       <div className="theme-card border theme-border rounded-xl p-5 space-y-3 shadow-xs">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-heading font-bold text-base theme-main-text flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-500" />
+            <Activity className="w-4 h-4 text-[#0D6847] dark:text-emerald-500" />
             Recent AI Requests Stream
           </h3>
           <span className="text-xs theme-muted-text font-mono">
@@ -336,7 +336,6 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
               {(aiMentor.recentLogs || aiMentor.recentMetrics || []).map((r: any, i: number) => {
                 const isQuota = r.status === 'QUOTA_EXHAUSTED';
                 const isFail = r.status === 'FAILED' || r.success === false;
-                const isSuccess = !isQuota && !isFail;
 
                 return (
                   <tr key={i} className="hover:theme-surface-subtle transition-colors">
@@ -345,7 +344,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
                     </td>
                     <td className="py-2.5 px-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold font-mono ${
-                        r.source === 'admin' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        r.source === 'admin' ? 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30' : 'bg-emerald-50 dark:bg-emerald-500/15 text-[#0D6847] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
                       }`}>
                         {(r.source || 'learning').toUpperCase()}
                       </span>
@@ -355,7 +354,7 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
                     </td>
                     <td className="py-2.5 px-3">
                       {r.hasAttachment ? (
-                        <span className="inline-flex items-center gap-1 text-purple-400 font-medium text-[11px]">
+                        <span className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-400 font-medium text-[11px]">
                           <Paperclip className="w-3 h-3" /> Attached
                         </span>
                       ) : (
@@ -367,15 +366,15 @@ export const AdminMentorAnalyticsTab: React.FC<AdminMentorAnalyticsTabProps> = (
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       {isQuota ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
                           QUOTA COOLDOWN
                         </span>
                       ) : isFail ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 dark:bg-rose-500/15 text-[#B82E3B] dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
                           FAILED
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/15 text-[#0D6847] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
                           SUCCESS
                         </span>
                       )}

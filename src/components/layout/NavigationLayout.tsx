@@ -125,7 +125,7 @@ function VerticalDockNavItem({
         } ${
           isActive
             ? 'bg-[#0D6847] text-white shadow-[0_0_18px_-2px_rgba(13,104,71,0.55)] font-bold ring-1 ring-emerald-400/30'
-            : 'theme-secondary-text hover:theme-main-text hover:bg-white/[0.04] dark:hover:bg-emerald-950/20 hover:shadow-2xs'
+            : 'theme-secondary-text hover:theme-main-text hover:bg-slate-100 dark:hover:bg-emerald-950/20 hover:shadow-2xs'
         }`}
       >
         {isCollapsed ? (
@@ -138,7 +138,7 @@ function VerticalDockNavItem({
                 : 'text-muted-foreground group-hover:theme-primary-text'
             }`}
           >
-            <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-emerald-400'}`} />
+            <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400'}`} />
           </motion.div>
         ) : (
           // Expanded: Icon + Label + Indicator
@@ -152,7 +152,7 @@ function VerticalDockNavItem({
                     : 'theme-surface-subtle text-muted-foreground group-hover:theme-primary-text'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-emerald-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'theme-muted-text group-hover:text-[#0D6847] dark:group-hover:text-emerald-400'}`} />
               </motion.div>
               <span className="truncate">{label}</span>
             </div>

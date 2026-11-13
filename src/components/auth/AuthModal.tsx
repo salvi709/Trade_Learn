@@ -143,17 +143,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-      {/* Modal Surface - Matches landing page elevated dark surfaces & emerald accents */}
-      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-gray-800 bg-gradient-to-b from-gray-950 via-gray-950 to-black p-6 sm:p-8 relative shadow-2xl space-y-5 text-white">
-        {/* Subtle emerald top glow matching landing hero */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 dark:bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+      {/* Modal Surface */}
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 dark:border-gray-800 bg-white dark:bg-gradient-to-b dark:from-gray-950 dark:via-gray-950 dark:to-black p-6 sm:p-8 relative shadow-2xl space-y-5 text-slate-900 dark:text-white">
+        {/* Subtle emerald top glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-52 h-20 bg-emerald-500/10 blur-[60px] pointer-events-none rounded-full" />
 
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-gray-900/80 border border-transparent hover:border-gray-800 transition-all cursor-pointer interactive-btn"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-900/80 border border-transparent hover:border-slate-200 dark:hover:border-gray-800 transition-all cursor-pointer interactive-btn"
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />
@@ -161,20 +161,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Brand Header */}
         <div className="text-center space-y-3 pt-1">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 flex items-center justify-center font-black text-white text-base shadow-md shadow-emerald-600/25 mx-auto">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#095237] via-[#0D6847] to-emerald-500 flex items-center justify-center font-black text-white text-base shadow-md shadow-emerald-600/25 mx-auto">
             TQ
           </div>
           <div>
-            <aside className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-800 bg-gray-900/80 backdrop-blur-sm mb-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[11px] text-gray-300 font-medium font-mono">
+            <aside className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-gray-800 bg-slate-100/80 dark:bg-gray-900/80 backdrop-blur-sm mb-2">
+              <span className="w-2 h-2 rounded-full bg-[#0D6847] dark:bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] text-slate-700 dark:text-gray-300 font-medium font-mono">
                 {APP_NAME} &bull; Cloud Sync
               </span>
             </aside>
-            <h2 className="text-2xl font-bold tracking-tight text-white font-heading">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
               {authMode === 'LOGIN' ? 'Welcome Back' : 'Create Free Account'}
             </h2>
-            <p className="text-xs text-gray-400 leading-relaxed max-w-xs mx-auto mt-1">
+            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed max-w-xs mx-auto mt-1">
               {authMode === 'LOGIN'
                 ? 'Sign in to access your modules, journal notes, and paper portfolio on any device.'
                 : 'Save your learning badges, custom journal theses, and simulation performance permanently.'}
@@ -183,7 +183,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Segmented Auth Mode Switcher */}
-        <div className="flex p-1 rounded-xl bg-gray-900/90 border border-gray-800">
+        <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-gray-900/90 border border-slate-200 dark:border-gray-800">
           <button
             type="button"
             onClick={() => {
@@ -195,8 +195,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer interactive-btn ${
               authMode === 'LOGIN'
-                ? 'bg-white text-black shadow-xs font-bold'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-white dark:bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Sign In
@@ -212,8 +212,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer interactive-btn ${
               authMode === 'REGISTER'
-                ? 'bg-white text-black shadow-xs font-bold'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-white dark:bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Create Account
@@ -225,7 +225,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full py-2.5 px-4 rounded-xl border border-gray-800 bg-gray-900/90 hover:bg-gray-800 text-white font-semibold text-xs flex items-center justify-center gap-2.5 shadow-xs transition-all cursor-pointer interactive-btn disabled:opacity-50"
+          className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-900/90 hover:bg-slate-100 dark:hover:bg-gray-800 text-slate-900 dark:text-white font-semibold text-xs flex items-center justify-center gap-2.5 shadow-xs transition-all cursor-pointer interactive-btn disabled:opacity-50"
         >
           <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path
@@ -248,56 +248,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <span>Continue with Google</span>
         </button>
 
-        <div className="flex items-center gap-3 text-gray-500 text-[10px] font-mono tracking-wider">
-          <div className="flex-1 h-px bg-gray-800/80"></div>
+        <div className="flex items-center gap-3 text-slate-400 dark:text-gray-500 text-[10px] font-mono tracking-wider">
+          <div className="flex-1 h-px bg-slate-200 dark:bg-gray-800/80"></div>
           <span>OR CONTINUE WITH EMAIL</span>
-          <div className="flex-1 h-px bg-gray-800/80"></div>
+          <div className="flex-1 h-px bg-slate-200 dark:bg-gray-800/80"></div>
         </div>
 
         {/* Email Form */}
         <form onSubmit={handleEmailAuth} className="space-y-3.5">
           <div>
-            <label className="text-xs font-medium text-gray-300 block mb-1.5">Email Address</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 block mb-1.5">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-slate-400 dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="email"
                 required
                 placeholder="learner@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-black/60 border border-gray-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-gray-500 interactive-input focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
+                className="w-full bg-slate-50 dark:bg-black/60 border border-slate-200 dark:border-gray-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 interactive-input focus:outline-none focus:border-[#0D6847] dark:focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-gray-300">Password</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-gray-300">Password</label>
               {authMode === 'LOGIN' && (
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-[11px] text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
+                  className="text-[11px] font-medium text-[#0D6847] dark:text-emerald-400 hover:underline cursor-pointer"
                 >
                   Forgot password?
                 </button>
               )}
             </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-slate-400 dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/60 border border-gray-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-gray-500 interactive-input focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
+                className="w-full bg-slate-50 dark:bg-black/60 border border-slate-200 dark:border-gray-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 interactive-input focus:outline-none focus:border-[#0D6847] dark:focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 p-1 cursor-pointer transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 p-1 cursor-pointer transition-colors"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -307,8 +307,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {errorMsg && (
             <div className="space-y-3">
-              <div className="p-3 bg-rose-950/20 border border-rose-500/30 rounded-xl text-xs text-rose-300 leading-relaxed flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 rounded-xl text-xs text-rose-800 dark:text-rose-300 leading-relaxed flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-[#B82E3B] dark:text-rose-400 mt-0.5" />
                 <div className="flex-1">
                   <span>{errorMsg}</span>
                 </div>
@@ -316,16 +316,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Dedicated Domain Authorization Helper Card */}
               {isUnauthorizedDomainState && (
-                <div className="p-3.5 bg-amber-950/30 border border-amber-500/40 rounded-2xl text-xs text-amber-200 space-y-2.5">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-400 text-xs">
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/40 rounded-2xl text-xs text-amber-900 dark:text-amber-200 space-y-2.5">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400 text-xs">
                     <ShieldAlert className="w-4 h-4 shrink-0" />
                     <span>Authorize Domain for Google Sign-In</span>
                   </div>
-                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                  <p className="text-[11px] text-slate-700 dark:text-gray-300 leading-relaxed">
                     Firebase requires your current domain to be added to Authorized Domains before Google OAuth can open:
                   </p>
-                  <div className="flex items-center gap-2 p-2 bg-black/60 border border-gray-800 rounded-xl">
-                    <code className="text-[11px] font-mono text-emerald-400 flex-1 truncate select-all">
+                  <div className="flex items-center gap-2 p-2 bg-white dark:bg-black/60 border border-amber-200 dark:border-gray-800 rounded-xl">
+                    <code className="text-[11px] font-mono text-[#0D6847] dark:text-emerald-400 flex-1 truncate select-all">
                       {typeof window !== 'undefined' ? window.location.hostname : 'current domain'}
                     </code>
                     <button
@@ -337,12 +337,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           setTimeout(() => setCopiedDomain(false), 2000);
                         }
                       }}
-                      className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded-md text-[10px] font-mono font-semibold transition-colors cursor-pointer interactive-btn shrink-0"
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-md text-[10px] font-mono font-semibold transition-colors cursor-pointer interactive-btn shrink-0"
                     >
                       {copiedDomain ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
-                  <ol className="list-decimal pl-4 space-y-1 text-[11px] text-gray-400">
+                  <ol className="list-decimal pl-4 space-y-1 text-[11px] text-slate-600 dark:text-gray-400">
                     <li>Open Firebase Auth Settings below.</li>
                     <li>Scroll to <strong>Authorized domains</strong> and click <strong>Add domain</strong>.</li>
                     <li>Paste the copied domain and click <strong>Add</strong>.</li>
@@ -360,7 +360,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={handleGuestEntry}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer interactive-btn"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border border-[#0D6847]/30 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[#0D6847] dark:text-emerald-300 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer interactive-btn"
                     >
                       <span>Continue as Guest</span>
                     </button>
@@ -370,25 +370,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Dedicated Email/Password Provider Helper Card */}
               {isOpDisabled && (
-                <div className="p-3.5 bg-amber-950/30 border border-amber-500/40 rounded-2xl text-xs text-amber-200 space-y-2.5">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-400 text-xs">
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/40 rounded-2xl text-xs text-amber-900 dark:text-amber-200 space-y-2.5">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400 text-xs">
                     <ShieldAlert className="w-4 h-4 shrink-0" />
                     <span>How to enable Email/Password login:</span>
                   </div>
-                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-gray-300">
+                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-slate-700 dark:text-gray-300">
                     <li>
                       Open your Firebase Console: <br />
-                      <a 
-                        href={FIREBASE_AUTH_PROVIDERS_URL} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-amber-400 underline font-mono text-[10px] break-all hover:text-amber-300"
+                      <a
+                        href={FIREBASE_AUTH_PROVIDERS_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-700 dark:text-amber-400 underline font-mono text-[10px] break-all hover:text-amber-900 dark:hover:text-amber-300"
                       >
                         {FIREBASE_AUTH_PROVIDERS_URL}
                       </a>
                     </li>
                     <li>
-                      If you see a blue <strong>"Get started"</strong> button, click it first to initialize Authentication.
+                      If you see a blue <strong>&quot;Get started&quot;</strong> button, click it first to initialize Authentication.
                     </li>
                     <li>
                       Click the <strong>Sign-in method</strong> tab (second tab at the top).
@@ -410,7 +410,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={handleGuestEntry}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer interactive-btn"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border border-[#0D6847]/30 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[#0D6847] dark:text-emerald-300 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer interactive-btn"
                     >
                       <span>Continue as Guest (Full Access)</span>
                     </button>
@@ -421,26 +421,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {noticeMsg && (
-            <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 leading-relaxed flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 rounded-xl text-xs text-[#0D6847] dark:text-emerald-300 leading-relaxed flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#0D6847] dark:text-emerald-400" />
               <span>{noticeMsg}</span>
             </div>
           )}
 
-          {/* Primary CTA Button - Emerald Gradient matching Landing CTA */}
+          {/* Primary CTA Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 hover:to-emerald-500 text-black font-semibold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer interactive-btn disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-xl bg-[#0D6847] hover:bg-[#095237] dark:bg-gradient-to-r dark:from-emerald-500 dark:via-emerald-400 dark:to-emerald-500 text-white dark:text-black font-semibold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer interactive-btn disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? 'Please wait...' : authMode === 'LOGIN' ? 'Sign In to Sync' : 'Create Free Account'}
           </button>
         </form>
 
-        <div className="flex items-center justify-between text-xs text-gray-400 pt-1">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-400 pt-1">
           {authMode === 'LOGIN' ? (
             <div className="w-full text-center">
-              New to TradeQuest?{' '}
+              New to {APP_NAME}?{' '}
               <button
                 type="button"
                 onClick={() => {
@@ -450,7 +450,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setNoticeMsg(null);
                   setAuthMode('REGISTER');
                 }}
-                className="text-emerald-400 hover:text-emerald-300 hover:underline font-semibold cursor-pointer"
+                className="text-[#0D6847] dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
               >
                 Create free account
               </button>
@@ -467,7 +467,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setNoticeMsg(null);
                   setAuthMode('LOGIN');
                 }}
-                className="text-emerald-400 hover:text-emerald-300 hover:underline font-semibold cursor-pointer"
+                className="text-[#0D6847] dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
               >
                 Sign in here
               </button>
@@ -476,11 +476,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Guest Exploration Link */}
-        <div className="pt-2 border-t border-gray-900 text-center">
+        <div className="pt-2 border-t border-slate-200 dark:border-gray-900 text-center">
           <button
             type="button"
             onClick={handleGuestEntry}
-            className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 interactive-btn"
+            className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5 interactive-btn font-medium"
           >
             <span>Continue as Guest (Full Risk-Free Simulator Access)</span>
             <ArrowRight className="w-3.5 h-3.5" />

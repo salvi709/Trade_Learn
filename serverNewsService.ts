@@ -9,18 +9,47 @@ export interface NewsSourceAdapter {
   fetchStories(): Promise<MarketNewsItem[]>;
 }
 
-// In-memory cache definition
+// In-memory cache with day-rollover + 10-minute TTL
 interface NewsCache {
   items: MarketNewsItem[];
   lastFetchedAt: number;
+  lastFetchedDayKey: string;
 }
 
 let globalNewsCache: NewsCache = {
   items: [],
   lastFetchedAt: 0,
+  lastFetchedDayKey: '',
 };
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache to strictly respect zero-budget & rate limits
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache to respect ₹0 budget & rate limits
+
+function getMarketDayKey(date = new Date()): string {
+  try {
+    return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD in IST
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+export function formatTimeAgo(isoDate: string): string {
+  const pubMs = new Date(isoDate).getTime();
+  if (isNaN(pubMs)) return 'Recently';
+  const diffMs = Math.max(0, Date.now() - pubMs);
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 2) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return '1d ago';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  try {
+    return new Date(isoDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  } catch {
+    return `${diffDays}d ago`;
+  }
+}
 
 function decodeHtmlEntities(str: string): string {
   return str
@@ -29,13 +58,34 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/&apos;/g, "'");
+    .replace(/&apos;/g, "'")
+    .replace(/&#8217;/g, "'")
+    .replace(/&#8216;/g, "'")
+    .replace(/&#8220;/g, '"')
+    .replace(/&#8221;/g, '"')
+    .replace(/&#8211;/g, '–')
+    .replace(/&#8212;/g, '—');
+}
+
+function stripCdata(raw: string): string {
+  return raw
+    .replace(/^\s*<!\[CDATA\[/i, '')
+    .replace(/\]\]>\s*$/i, '')
+    .trim();
+}
+
+function extractXmlTag(rawItem: string, tagName: string): string {
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i');
+  const match = rawItem.match(regex);
+  if (!match) return '';
+  return stripCdata(match[1]);
 }
 
 function stripHtml(html: string): string {
   if (!html) return '';
-  const decoded = decodeHtmlEntities(decodeHtmlEntities(html));
+  const decoded = decodeHtmlEntities(decodeHtmlEntities(stripCdata(html)));
   const clean = decoded.replace(/<[^>]+>/g, ' ');
   return clean.replace(/\s+/g, ' ').trim();
 }
@@ -43,44 +93,54 @@ function stripHtml(html: string): string {
 // Extract known stock symbols from title or summary
 function extractSymbols(text: string): string[] {
   const candidateSymbols = [
-    'NIFTY', 'SENSEX', 'RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK',
-    'INFY', 'BHARTIARTL', 'SBIN', 'ITC', 'LICI', 'TATAMOTORS',
+    'NIFTY', 'SENSEX', 'BANKNIFTY', 'RELIANCE', 'TCS', 'HDFCBANK', 'ICICIBANK',
+    'INFY', 'BHARTIARTL', 'AIRTEL', 'SBIN', 'ITC', 'LICI', 'TATAMOTORS',
     'KOTAKBANK', 'LT', 'AXISBANK', 'MARUTI', 'TITAN', 'BAJFINANCE',
+    'WIPRO', 'SUNPHARMA', 'ADANIENT', 'TATASTEEL', 'ONGC', 'NTPC',
     'NOVA', 'GREENCORE', 'URBAN', 'BLUEWAVE'
   ];
   const upper = text.toUpperCase();
-  const matched = candidateSymbols.filter((sym) => {
+  return candidateSymbols.filter((sym) => {
     const regex = new RegExp(`\\b${sym}\\b`, 'i');
     return regex.test(upper);
   });
-  return matched;
 }
 
 // Classify sentiment conservatively from headline keywords
 function classifySentiment(title: string): 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' {
   const lower = title.toLowerCase();
-  const positiveCues = ['surge', 'rally', 'jump', 'gain', 'record high', 'profit rises', 'soars', 'bull', 'upgrade', 'expansion', 'dividend'];
-  const negativeCues = ['plunge', 'tumble', 'crash', 'loss', 'down', 'slump', 'bear', 'drop', 'downgrade', 'penalty', 'falls', 'scam', 'fraud'];
+  const positiveCues = [
+    'surge', 'rally', 'jump', 'gain', 'record high', 'all-time high',
+    'profit rises', 'pat rises', 'soars', 'bull', 'upgrade', 'expansion',
+    'dividend', 'outperform', 'extends gains', 'growth', 'rises'
+  ];
+  const negativeCues = [
+    'slump', 'crash', 'fall', 'drop', 'plunge', 'loss', 'decline',
+    'selloff', 'sell-off', 'bear', 'downgrade', 'warning', 'fraud',
+    'deficit', 'inflation shock', 'turmoil', 'crisis', 'tumbles', 'cuts', 'rebuffed'
+  ];
 
-  if (positiveCues.some((w) => lower.includes(w))) return 'POSITIVE';
-  if (negativeCues.some((w) => lower.includes(w))) return 'NEGATIVE';
+  const posScore = positiveCues.filter((w) => lower.includes(w)).length;
+  const negScore = negativeCues.filter((w) => lower.includes(w)).length;
+
+  if (posScore > negScore) return 'POSITIVE';
+  if (negScore > posScore) return 'NEGATIVE';
   return 'NEUTRAL';
 }
 
-// Detect genuine breaking news
+// Determine if news story qualifies as Breaking News based on recency & urgency
 function detectIsBreaking(title: string, publishedAtIso: string): boolean {
   const pubTime = new Date(publishedAtIso).getTime();
   const now = Date.now();
   const ageHours = (now - pubTime) / (1000 * 60 * 60);
 
-  // Must be reasonably recent (within last 12 hours)
   if (ageHours > 12) return false;
 
   const lower = title.toLowerCase();
   const urgentCues = [
-    'breaking', 'alert', 'record high', 'all-time high', 'rbi policy', 
+    'breaking', 'alert', 'record high', 'all-time high', 'rbi policy',
     'repo rate', 'sebi order', 'circuit breaker', 'emergency', 'gdp',
-    'market crash', 'historic high', 'budget'
+    'market crash', 'historic high', 'budget', 'sensex', 'nifty'
   ];
   return urgentCues.some((cue) => lower.includes(cue));
 }
@@ -88,21 +148,16 @@ function detectIsBreaking(title: string, publishedAtIso: string): boolean {
 // Resilient XML item parser for standard RSS feeds
 function parseRssFeed(xmlText: string, defaultCategory: NewsCategory, defaultSource: string): MarketNewsItem[] {
   const results: MarketNewsItem[] = [];
-  const itemMatches = xmlText.matchAll(/<item[\s\S]*?>([\s\S]*?)<\/item>/gi);
+  const itemMatches = xmlText.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi);
 
   for (const m of itemMatches) {
     const raw = m[1];
-    const titleMatch = raw.match(/<title[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
-    const linkMatch = raw.match(/<link[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
-    const pubDateMatch = raw.match(/<pubDate[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/pubDate>/i);
-    const descMatch = raw.match(/<description[\s\S]*?>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
-    const sourceMatch = raw.match(/<source[\s\S]*?url=[\"']([^\"']*)[\"'][\s\S]*?>([\s\S]*?)<\/source>/i);
-
-    let rawTitle = titleMatch ? titleMatch[1].trim() : '';
-    let link = linkMatch ? linkMatch[1].trim() : '';
-    let pubDateStr = pubDateMatch ? pubDateMatch[1].trim() : '';
-    let rawDesc = descMatch ? descMatch[1] : '';
-    let publisher = sourceMatch ? sourceMatch[2].trim() : defaultSource;
+    let rawTitle = extractXmlTag(raw, 'title');
+    const link = extractXmlTag(raw, 'link');
+    const pubDateStr = extractXmlTag(raw, 'pubDate');
+    const rawDesc = extractXmlTag(raw, 'description');
+    const sourceMatch = raw.match(/<source\b[^>]*>([\s\S]*?)<\/source>/i);
+    let publisher = sourceMatch ? stripCdata(sourceMatch[1]) : defaultSource;
 
     if (!rawTitle || !link) continue;
 
@@ -110,16 +165,28 @@ function parseRssFeed(xmlText: string, defaultCategory: NewsCategory, defaultSou
     if (rawTitle.includes(' - ')) {
       const parts = rawTitle.split(' - ');
       const extractedPub = parts.pop()?.trim();
-      if (extractedPub) {
+      if (extractedPub && extractedPub.length <= 45) {
         publisher = extractedPub;
         rawTitle = parts.join(' - ').trim();
       }
     }
 
-    const title = decodeHtmlEntities(rawTitle);
+    const title = decodeHtmlEntities(rawTitle).replace(/\s+/g, ' ').trim();
     let summary = stripHtml(rawDesc);
-    if (!summary || summary.length < 15 || summary === title || summary === publisher) {
-      summary = `${title} — Real-time market report from ${publisher} tracking corporate disclosures and financial market trends.`;
+
+    // Google News descriptions often repeat "Title Publisher" — detect & polish into clean editorial context
+    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizedSummary = summary.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizedPub = publisher.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (
+      !summary ||
+      summary.length < 20 ||
+      normalizedSummary === normalizedTitle ||
+      normalizedSummary === `${normalizedTitle}${normalizedPub}` ||
+      normalizedSummary.startsWith(normalizedTitle.slice(0, 40)) && summary.length <= title.length + publisher.length + 6
+    ) {
+      summary = `Reported by ${publisher}. Coverage tracks today's market developments, sector sentiment, and price action around this story.`;
     }
 
     let publishedAtIso = new Date().toISOString();
@@ -134,23 +201,52 @@ function parseRssFeed(xmlText: string, defaultCategory: NewsCategory, defaultSou
       publishedAtIso = new Date().toISOString();
     }
 
-    // Determine category based on content context if default is generic
+    // Accurate smart category classification
     let category = defaultCategory;
     const lower = `${title} ${summary}`.toLowerCase();
-    if (lower.includes('ipo') || lower.includes('listing') || lower.includes('allotment')) {
+    if (lower.includes('ipo') || lower.includes('allotment') || lower.includes('gmp') || lower.includes('d-street debut')) {
       category = 'IPO_LISTINGS';
-    } else if (lower.includes('rbi') || lower.includes('repo rate') || lower.includes('inflation') || lower.includes('fiscal') || lower.includes('gdp')) {
+    } else if (
+      lower.includes('us stocks') ||
+      lower.includes('wall street') ||
+      lower.includes('nasdaq') ||
+      lower.includes('dow jones') ||
+      lower.includes('s&p 500') ||
+      lower.includes('fed rate') ||
+      lower.includes('fed hike') ||
+      lower.includes('chicago fed') ||
+      lower.includes('bofa')
+    ) {
+      category = 'GLOBAL_MARKETS';
+    } else if (
+      lower.includes('rbi') ||
+      lower.includes('repo rate') ||
+      lower.includes('monetary policy') ||
+      lower.includes('cpi inflation') ||
+      lower.includes('fiscal deficit') ||
+      lower.includes('fiscal policy') ||
+      lower.includes('india gdp')
+    ) {
       category = 'ECONOMY_RBI';
     } else if (lower.includes('nifty') || lower.includes('sensex')) {
       category = 'NIFTY_SENSEX';
-    } else if (lower.includes('gold') || lower.includes('silver') || lower.includes('crude oil') || lower.includes('rupee') || lower.includes('forex')) {
+    } else if (lower.includes('gold price') || lower.includes('silver') || lower.includes('crude oil') || lower.includes('brent') || lower.includes('rupee') || lower.includes('forex')) {
       category = 'COMMODITIES_CURRENCY';
-    } else if (lower.includes('wall street') || lower.includes('nasdaq') || lower.includes('dow jones') || lower.includes('fed rate')) {
-      category = 'GLOBAL_MARKETS';
     } else if (lower.includes('dividend') || lower.includes('bonus issue') || lower.includes('stock split') || lower.includes('board meeting') || lower.includes('sebi circular')) {
       category = 'CORPORATE_ANNOUNCEMENTS';
-    } else if (lower.includes('technical') || lower.includes('support') || lower.includes('resistance') || lower.includes('breakout') || lower.includes('candlestick')) {
+    } else if (lower.includes('technical') || lower.includes('support') || lower.includes('resistance') || lower.includes('breakout') || lower.includes('candlestick') || lower.includes('option chain')) {
       category = 'TECHNICAL_ANALYSIS';
+    } else if (
+      lower.includes('q1') ||
+      lower.includes('q2') ||
+      lower.includes('q3') ||
+      lower.includes('q4') ||
+      lower.includes('pat rises') ||
+      lower.includes('earnings') ||
+      lower.includes('results') ||
+      lower.includes('shares')
+    ) {
+      category = 'STOCKS_COMPANIES';
     }
 
     const isBreaking = detectIsBreaking(title, publishedAtIso);
@@ -158,17 +254,17 @@ function parseRssFeed(xmlText: string, defaultCategory: NewsCategory, defaultSou
     const symbols = extractSymbols(`${title} ${summary}`);
     const sentiment = classifySentiment(title);
 
-    // Deterministic ID based on link hash or title slug
     const cleanId = `news_${encodeURIComponent(title.substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '_'))}_${pubDateStr.substring(0, 10).replace(/[^a-z0-9]/g, '')}`;
 
     results.push({
       id: cleanId,
       title,
-      summary: summary.length > 280 ? `${summary.substring(0, 280)}...` : summary,
+      summary: summary.length > 260 ? `${summary.substring(0, 257)}...` : summary,
       url: link,
-      publisher: publisher || 'Financial News Desk',
+      publisher: decodeHtmlEntities(publisher || 'Financial News Desk'),
       publishedAt: publishedAtIso,
       retrievedAt: new Date().toISOString(),
+      timeAgo: formatTimeAgo(publishedAtIso),
       category,
       isBreaking,
       isTrending,
@@ -204,7 +300,7 @@ class GoogleNewsAdapter implements NewsSourceAdapter {
           'User-Agent': 'ShareMarket-Educational-Bot/1.0 (India; Financial Literacy Platform)',
           'Accept': 'application/rss+xml, application/xml, text/xml',
         },
-        signal: AbortSignal.timeout(5000), // 5s timeout
+        signal: AbortSignal.timeout(5500),
       });
 
       if (!response.ok) {
@@ -241,7 +337,7 @@ class DirectRssAdapter implements NewsSourceAdapter {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/rss+xml, application/xml, text/xml',
         },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(5500),
       });
 
       if (!response.ok) return [];
@@ -254,28 +350,29 @@ class DirectRssAdapter implements NewsSourceAdapter {
   }
 }
 
-// Curated active adapter registry
+// Curated active adapter registry — direct RSS feeds first for rich editorial summaries, plus fresh 48h Google News feeds
 const REGISTERED_ADAPTERS: NewsSourceAdapter[] = [
-  new GoogleNewsAdapter('gn_nse_bse', 'NSE & BSE Markets', 'NSE_BSE', 'NSE BSE Indian Stock Market'),
-  new GoogleNewsAdapter('gn_nifty', 'Nifty & Sensex Indices', 'NIFTY_SENSEX', 'Nifty 50 Sensex Stock Market India'),
-  new GoogleNewsAdapter('gn_companies', 'Stocks & Corporate Earnings', 'STOCKS_COMPANIES', 'Indian companies quarterly results earnings stock'),
-  new GoogleNewsAdapter('gn_ipo', 'IPO & Listings Desk', 'IPO_LISTINGS', 'IPO listing Indian stock market SEBI allotment'),
-  new GoogleNewsAdapter('gn_rbi', 'Economy & Reserve Bank of India', 'ECONOMY_RBI', 'RBI monetary policy repo rate inflation GDP India'),
-  new GoogleNewsAdapter('gn_global', 'Global Financial Markets', 'GLOBAL_MARKETS', 'Global stock markets Wall Street Dow Jones Nasdaq Fed'),
-  new GoogleNewsAdapter('gn_commodities', 'Commodities & Forex Desk', 'COMMODITIES_CURRENCY', 'Rupee dollar gold crude oil commodities India'),
-  new GoogleNewsAdapter('gn_tech_analysis', 'Technical Analysis & Derivatives', 'TECHNICAL_ANALYSIS', 'Nifty technical levels support resistance option chain'),
   new DirectRssAdapter('et_markets', 'The Economic Times', 'INDIAN_MARKETS', 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms'),
+  new DirectRssAdapter('et_stocks', 'The Economic Times', 'STOCKS_COMPANIES', 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms'),
+  new DirectRssAdapter('livemint_markets', 'Livemint', 'INDIAN_MARKETS', 'https://www.livemint.com/rss/markets'),
+  new DirectRssAdapter('bs_markets', 'Business Standard', 'NSE_BSE', 'https://www.business-standard.com/rss/markets-106.rss'),
+  new GoogleNewsAdapter('gn_nifty', 'Nifty & Sensex Indices', 'NIFTY_SENSEX', 'Nifty 50 Sensex Stock Market India when:2d'),
+  new GoogleNewsAdapter('gn_ipo', 'IPO & Listings Desk', 'IPO_LISTINGS', 'India IPO listing SEBI allotment when:2d'),
+  new GoogleNewsAdapter('gn_rbi', 'Economy & Reserve Bank of India', 'ECONOMY_RBI', 'RBI monetary policy repo rate inflation India GDP when:3d'),
+  new GoogleNewsAdapter('gn_global', 'Global Financial Markets', 'GLOBAL_MARKETS', 'Wall Street Dow Jones Nasdaq Fed rate global stocks when:2d'),
+  new GoogleNewsAdapter('gn_commodities', 'Commodities & Forex Desk', 'COMMODITIES_CURRENCY', 'Rupee dollar gold crude oil India MCX when:2d'),
+  new GoogleNewsAdapter('gn_tech_analysis', 'Technical Analysis & Derivatives', 'TECHNICAL_ANALYSIS', 'Nifty Bank Nifty technical levels support resistance when:2d'),
 ];
 
 // Fallback baseline verified real stories if external network connection is ever unavailable
 const FALLBACK_MARKET_STORIES: MarketNewsItem[] = [
   {
     id: 'fallback_01',
-    title: 'Nifty 50 and Sensex Scale Historic Peaks Amid Steady Institutional Inflows',
-    summary: 'India benchmark equity indices maintained robust momentum led by large-cap banking, auto, and consumer discretionary franchises following positive macroeconomic growth prints.',
+    title: 'Nifty 50 and Sensex Trade Steady Amid Institutional Flows & Sector Rotation',
+    summary: 'India benchmark equity indices maintained momentum led by banking, auto, and IT large-caps following domestic fund inflows and steady macroeconomic indicators.',
     url: 'https://economictimes.indiatimes.com/markets',
     publisher: 'The Economic Times',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45m ago
+    publishedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     retrievedAt: new Date().toISOString(),
     category: 'NIFTY_SENSEX',
     isBreaking: true,
@@ -285,11 +382,11 @@ const FALLBACK_MARKET_STORIES: MarketNewsItem[] = [
   },
   {
     id: 'fallback_02',
-    title: 'RBI Monetary Policy Committee Maintains Stance Focusing on Disinflation and Durable Growth',
-    summary: 'The Reserve Bank of India’s MPC kept the benchmark repo rate steady, highlighting resilient domestic industrial capacity and stable macroeconomic indicators.',
+    title: 'RBI Monetary Policy Committee Focuses on Price Stability & Durable Growth',
+    summary: 'The Reserve Bank of India highlighted resilient domestic industrial capacity and stable liquidity conditions while monitoring food inflation trajectories.',
     url: 'https://www.rbi.org.in',
     publisher: 'Reserve Bank of India',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2h ago
+    publishedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     retrievedAt: new Date().toISOString(),
     category: 'ECONOMY_RBI',
     isBreaking: false,
@@ -299,22 +396,21 @@ const FALLBACK_MARKET_STORIES: MarketNewsItem[] = [
   },
   {
     id: 'fallback_03',
-    title: 'SEBI Streamlines Retail Trading & Settlement Timelines to Deepen Financial Literacy',
-    summary: 'Market regulator SEBI announced enhanced safeguards for retail investor protections and streamlined digital IPO application workflows across depositories.',
+    title: 'SEBI Streamlines Retail Trading & Settlement Safeguards Across Exchanges',
+    summary: 'Market regulator SEBI detailed updated retail investor protections and operational guidelines for faster trade settlement cycles.',
     url: 'https://www.sebi.gov.in',
     publisher: 'SEBI Official Releases',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4h ago
+    publishedAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
     retrievedAt: new Date().toISOString(),
     category: 'CORPORATE_ANNOUNCEMENTS',
     isBreaking: false,
     isTrending: false,
-    symbols: ['NOVA', 'GREENCORE'],
     sentiment: 'POSITIVE',
   },
   {
     id: 'fallback_04',
-    title: 'New Tech & Renewable Energy IPOs Receive Robust Anchor Subscription on BSE and NSE',
-    summary: 'Strong investor appetite continued for upcoming enterprise software and clean energy initial public offerings, with institutional books subscribed within initial bidding hours.',
+    title: 'Mainboard & Clean Energy IPOs Draw Strong Institutional Bidding on NSE and BSE',
+    summary: 'Investor participation remained firm across upcoming enterprise and infrastructure public offerings during anchor and QIB allocation windows.',
     url: 'https://www.bseindia.com',
     publisher: 'BSE Market Updates',
     publishedAt: new Date(Date.now() - 1000 * 60 * 320).toISOString(),
@@ -322,22 +418,7 @@ const FALLBACK_MARKET_STORIES: MarketNewsItem[] = [
     category: 'IPO_LISTINGS',
     isBreaking: false,
     isTrending: true,
-    symbols: ['GREENCORE', 'NOVA'],
     sentiment: 'POSITIVE',
-  },
-  {
-    id: 'fallback_05',
-    title: 'Crude Oil and Currency Markets Trade Flat as Traders Monitor Global Interest Rate Cues',
-    summary: 'The Indian Rupee traded in a tight band against the US Dollar while Brent Crude consolidated near steady resistance levels as traders balanced global inventory data.',
-    url: 'https://www.livemint.com',
-    publisher: 'Mint Markets',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 400).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'COMMODITIES_CURRENCY',
-    isBreaking: false,
-    isTrending: false,
-    symbols: ['RELIANCE'],
-    sentiment: 'NEUTRAL',
   },
 ];
 
@@ -349,10 +430,9 @@ function deduplicateStories(stories: MarketNewsItem[]): MarketNewsItem[] {
 
   for (const item of stories) {
     const normUrl = item.url.split('?')[0].toLowerCase();
-    // Normalize first 45 alphanumeric characters of title
     const normTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 45);
 
-    if (seenUrls.has(normUrl) || seenTitlePrefixes.has(normTitle)) {
+    if (!normTitle || seenUrls.has(normUrl) || seenTitlePrefixes.has(normTitle)) {
       continue;
     }
 
@@ -361,13 +441,13 @@ function deduplicateStories(stories: MarketNewsItem[]): MarketNewsItem[] {
     unique.push(item);
   }
 
-  // Sort descending by publication date
+  // Sort descending by publication date (freshest first)
   unique.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   return unique;
 }
 
 /**
- * Main service method to retrieve live market news across sources with caching & search
+ * Main service method to retrieve live daily market news across sources with caching & search
  */
 export async function getMarketNews(options: {
   category?: NewsCategory;
@@ -378,12 +458,18 @@ export async function getMarketNews(options: {
 }): Promise<MarketNewsResponse> {
   const { category = 'ALL', search = '', limit = 50, refresh = false, forceRefresh = false } = options;
   const now = Date.now();
+  const todayKey = getMarketDayKey();
+  const isDayRollover = globalNewsCache.lastFetchedDayKey !== todayKey;
   const isCacheExpired = now - globalNewsCache.lastFetchedAt > CACHE_TTL_MS;
-  const shouldFetchFresh = refresh || forceRefresh || isCacheExpired || globalNewsCache.items.length === 0;
+  const shouldFetchFresh =
+    refresh ||
+    forceRefresh ||
+    isDayRollover ||
+    isCacheExpired ||
+    globalNewsCache.items.length === 0;
 
   if (shouldFetchFresh) {
     try {
-      // Execute all registered adapters concurrently with timeout
       const adapterPromises = REGISTERED_ADAPTERS.map((adapter) => adapter.fetchStories());
       const results = await Promise.allSettled(adapterPromises);
 
@@ -399,12 +485,13 @@ export async function getMarketNews(options: {
         globalNewsCache = {
           items: deduplicated,
           lastFetchedAt: now,
+          lastFetchedDayKey: todayKey,
         };
       } else if (globalNewsCache.items.length === 0) {
-        // Fallback to verified baseline dataset
         globalNewsCache = {
           items: deduplicateStories(FALLBACK_MARKET_STORIES),
           lastFetchedAt: now,
+          lastFetchedDayKey: todayKey,
         };
       }
     } catch (err) {
@@ -413,13 +500,18 @@ export async function getMarketNews(options: {
         globalNewsCache = {
           items: deduplicateStories(FALLBACK_MARKET_STORIES),
           lastFetchedAt: now,
+          lastFetchedDayKey: todayKey,
         };
       }
     }
   }
 
-  // Filter by category
-  let filtered = globalNewsCache.items;
+  // Recompute dynamic relative timeAgo so cached items always stay accurate
+  let filtered = globalNewsCache.items.map((item) => ({
+    ...item,
+    timeAgo: formatTimeAgo(item.publishedAt),
+  }));
+
   if (category && category !== 'ALL') {
     filtered = filtered.filter((item) => {
       if (item.category === category) return true;
@@ -428,7 +520,6 @@ export async function getMarketNews(options: {
     });
   }
 
-  // Filter by keyword or stock symbol
   if (search && search.trim()) {
     const q = search.trim().toLowerCase();
     filtered = filtered.filter((item) => {
@@ -446,26 +537,25 @@ export async function getMarketNews(options: {
     items: sliced,
     total: filtered.length,
     retrievedAt: new Date(globalNewsCache.lastFetchedAt || Date.now()).toISOString(),
-    source: 'Financial Feeds Syndicate (NSE, BSE, RBI & Accredited Financial Press)',
+    source: 'Financial Feeds Syndicate (Economic Times, Livemint, Business Standard & Google News)',
     cached: !shouldFetchFresh,
   };
 }
 
 /**
- * Returns 3–5 curated, prioritized stories for the Dashboard preview
+ * Returns 4 curated, prioritized stories for the Dashboard preview
  */
 export async function getDashboardNews(): Promise<MarketNewsItem[]> {
-  const allNews = await getMarketNews({ limit: 40 });
+  const allNews = await getMarketNews({ limit: 45 });
   const items = allNews.items;
 
   if (items.length === 0) {
-    return FALLBACK_MARKET_STORIES.slice(0, 4);
+    return FALLBACK_MARKET_STORIES.slice(0, 4).map((i) => ({
+      ...i,
+      timeAgo: formatTimeAgo(i.publishedAt),
+    }));
   }
 
-  // Prioritization Algorithm:
-  // 1. One Breaking News or Top Trend story
-  // 2. High relevance Indian market developments (NSE, Nifty, Sensex)
-  // 3. Significant corporate or RBI/SEBI macroeconomic updates
   const breakingStory = items.find((i) => i.isBreaking) || items.find((i) => i.isTrending) || items[0];
   const remaining = items.filter((i) => i.id !== breakingStory.id);
 
@@ -479,9 +569,18 @@ export async function getDashboardNews(): Promise<MarketNewsItem[]> {
   const curated: MarketNewsItem[] = [breakingStory];
 
   if (indianMarketStories[0]) curated.push(indianMarketStories[0]);
-  if (corporateOrEconStories[0]) curated.push(corporateOrEconStories[0]);
-  if (indianMarketStories[1] && curated.length < 4) curated.push(indianMarketStories[1]);
-  if (remaining[0] && !curated.includes(remaining[0]) && curated.length < 4) curated.push(remaining[0]);
+  if (corporateOrEconStories[0] && !curated.some((c) => c.id === corporateOrEconStories[0].id)) {
+    curated.push(corporateOrEconStories[0]);
+  }
+  if (indianMarketStories[1] && !curated.some((c) => c.id === indianMarketStories[1].id) && curated.length < 4) {
+    curated.push(indianMarketStories[1]);
+  }
+  for (const r of remaining) {
+    if (curated.length >= 4) break;
+    if (!curated.some((c) => c.id === r.id)) {
+      curated.push(r);
+    }
+  }
 
   return curated.slice(0, 4);
 }
@@ -490,5 +589,6 @@ export function clearNewsCache(): void {
   globalNewsCache = {
     items: [],
     lastFetchedAt: 0,
+    lastFetchedDayKey: '',
   };
 }

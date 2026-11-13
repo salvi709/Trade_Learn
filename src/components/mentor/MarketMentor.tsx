@@ -853,15 +853,15 @@ export const MarketMentor: React.FC<MentorProps> = ({
                   </div>
 
                   {isEditingThis ? (
-                    <div className="space-y-2 w-full min-w-[260px] max-w-[85%] md:max-w-[80%] rounded-2xl p-3 bg-slate-900 border border-emerald-500 shadow-xl">
-                      <div className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1 mb-1">
+                    <div className="space-y-2 w-full min-w-[260px] max-w-[85%] md:max-w-[80%] rounded-2xl p-3 theme-card border border-[#0D6847] dark:border-emerald-500 shadow-lg">
+                      <div className="text-[11px] font-semibold text-[#0D6847] dark:text-emerald-400 flex items-center gap-1 mb-1">
                         <Edit2 className="w-3 h-3" />
                         Edit Question (Subsequent replies will be regenerated)
                       </div>
                       <textarea
                         value={editingMessageText}
                         onChange={(e) => setEditingMessageText(e.target.value)}
-                        className="w-full p-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-xs theme-main-text focus:outline-none focus:border-emerald-500 resize-none"
+                        className="w-full p-2.5 rounded-xl theme-surface-subtle border theme-border text-xs theme-main-text focus:outline-none focus:border-[#0D6847] dark:focus:border-emerald-500 resize-none"
                         rows={3}
                         autoFocus
                       />
@@ -869,7 +869,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                         <button
                           type="button"
                           onClick={handleCancelEdit}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium"
+                          className="px-2.5 py-1 rounded-lg theme-surface-subtle border theme-border hover:bg-slate-200/70 dark:hover:bg-slate-700 theme-secondary-text text-[11px] font-medium cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -1038,9 +1038,9 @@ export const MarketMentor: React.FC<MentorProps> = ({
 
           {/* Retry notice if last request failed */}
           {(lastFailedQuestion || messages.some((m) => m.id.startsWith('mentor_error_'))) && !loading && (
-            <div className="p-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between gap-3 text-xs text-rose-300">
+            <div className="p-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">
               <span className="flex items-center gap-1.5 font-medium">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-[#B82E3B] dark:text-rose-400 shrink-0" />
                 <span>
                   {messages.some((m) => m.text?.includes('Zero-Cost') || m.text?.includes('₹0 Budget'))
                     ? 'Free daily quota limit reached. Cooldown active.'
@@ -1081,7 +1081,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
         <div className="p-3 md:p-4 theme-card border-t theme-border">
           {/* File Attachment Preview */}
           {attachment && (
-            <div className="mb-2 p-2 px-3 rounded-xl bg-slate-900/90 border border-emerald-500/40 flex items-center justify-between text-xs shadow-sm">
+            <div className="mb-2 p-2 px-3 rounded-xl theme-surface-subtle border border-[#0D6847]/35 dark:border-emerald-500/40 flex items-center justify-between text-xs shadow-sm">
               <div className="flex items-center gap-2 truncate">
                 {attachment.type.startsWith('image/') && attachment.dataUrl ? (
                   <img
@@ -1090,7 +1090,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
                     className="w-7 h-7 rounded object-cover border border-emerald-500/30 shrink-0"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded bg-slate-800 flex items-center justify-center text-emerald-400 shrink-0">
+                  <div className="w-7 h-7 rounded bg-emerald-500/15 flex items-center justify-center text-[#0D6847] dark:text-emerald-400 shrink-0">
                     <FileText className="w-3.5 h-3.5" />
                   </div>
                 )}
@@ -1104,7 +1104,7 @@ export const MarketMentor: React.FC<MentorProps> = ({
               <button
                 type="button"
                 onClick={() => setAttachment(null)}
-                className="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 theme-muted-text hover:theme-main-text cursor-pointer"
                 title="Remove attachment"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1114,9 +1114,9 @@ export const MarketMentor: React.FC<MentorProps> = ({
 
           {/* File size or validation error */}
           {attachmentError && (
-            <div className="mb-2 p-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between">
+            <div className="mb-2 p-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between">
               <span>{attachmentError}</span>
-              <button type="button" onClick={() => setAttachmentError(null)}>
+              <button type="button" onClick={() => setAttachmentError(null)} className="cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>

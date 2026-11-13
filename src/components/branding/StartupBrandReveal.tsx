@@ -41,7 +41,7 @@ export const StartupBrandReveal: React.FC<StartupBrandRevealProps> = ({
         initial={{ opacity: 1 }}
         exit={{ opacity: 0, transition: { duration: 0.4, ease: 'easeInOut' } }}
         onClick={onComplete}
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black text-white cursor-pointer select-none px-6"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center theme-bg theme-main-text cursor-pointer select-none px-6"
       >
         <div className="flex flex-col items-center text-center max-w-sm space-y-4">
           {/* Step 1: Existing Brand Logo */}
@@ -49,7 +49,7 @@ export const StartupBrandReveal: React.FC<StartupBrandRevealProps> = ({
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-emerald-700 via-emerald-600 to-emerald-500 flex items-center justify-center font-black text-white text-2xl sm:text-3xl shadow-xl shadow-emerald-500/20 border border-emerald-500/30"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-[#095237] via-[#0D6847] to-emerald-500 flex items-center justify-center font-black text-white text-2xl sm:text-3xl shadow-xl shadow-emerald-600/20 border border-emerald-500/30"
           >
             TQ
           </motion.div>
@@ -60,7 +60,7 @@ export const StartupBrandReveal: React.FC<StartupBrandRevealProps> = ({
               initial={{ y: 8, opacity: 0 }}
               animate={stage !== 'logo' ? { y: 0, opacity: 1 } : { y: 8, opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-white"
+              className="text-2xl sm:text-3xl font-bold tracking-tight font-heading theme-main-text"
             >
               {APP_NAME}
             </motion.h1>
@@ -70,7 +70,7 @@ export const StartupBrandReveal: React.FC<StartupBrandRevealProps> = ({
               initial={{ y: 6, opacity: 0 }}
               animate={stage === 'tagline' || stage === 'done' ? { y: 0, opacity: 1 } : { y: 6, opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="text-xs sm:text-sm font-mono text-emerald-400 font-medium tracking-wide"
+              className="text-xs sm:text-sm font-mono text-[#0D6847] dark:text-emerald-400 font-semibold tracking-wide"
             >
               {APP_TAGLINE}
             </motion.p>
@@ -80,9 +80,9 @@ export const StartupBrandReveal: React.FC<StartupBrandRevealProps> = ({
         {/* Subtle skip prompt */}
         <motion.div
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.4 }}
+          animate={{ opacity: 0.6 }}
           transition={{ delay: 0.8, duration: 0.3 }}
-          className="absolute bottom-8 text-[11px] font-mono text-gray-400"
+          className="absolute bottom-8 text-[11px] font-mono theme-muted-text"
         >
           Click anywhere to skip
         </motion.div>

@@ -461,19 +461,19 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                   {m.attachments && m.attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 my-2">
                       {m.attachments.map((att, i) => (
-                        <div key={i} className="rounded-lg overflow-hidden border border-white/20 bg-black/30 max-w-[240px]">
+                        <div key={i} className="rounded-lg overflow-hidden border theme-border theme-surface-subtle max-w-[240px]">
                           {att.dataUrl && (
-                            <img src={att.dataUrl} alt={att.name || 'Screenshot'} className="max-h-40 w-auto object-contain bg-black/40" />
+                            <img src={att.dataUrl} alt={att.name || 'Screenshot'} className="max-h-40 w-auto object-contain bg-slate-100 dark:bg-black/40" />
                           )}
-                          <div className="p-1 text-[10px] truncate px-1.5 opacity-80 flex items-center gap-1">
-                            <ImageIcon className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <div className="p-1 text-[10px] truncate px-1.5 opacity-85 flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3 text-[#0D6847] dark:text-emerald-400 shrink-0" />
                             <span className="truncate">{att.name || 'Screenshot'}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-[10px] opacity-70 border-t theme-border pt-1 mt-2">
+                  <div className="flex items-center justify-between text-[10px] opacity-75 border-t theme-border pt-1 mt-2">
                     <span>{m.time}</span>
                     <div className="flex items-center gap-2">
                       <button
@@ -483,8 +483,8 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                       >
                         {copiedId === m.id ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            <span className="text-emerald-400 font-semibold">Copied</span>
+                            <Check className="w-3 h-3 text-[#0D6847] dark:text-emerald-400" />
+                            <span className="text-[#0D6847] dark:text-emerald-400 font-semibold">Copied</span>
                           </>
                         ) : (
                           <>
@@ -497,7 +497,7 @@ export const AdminIntelligenceMentorTab: React.FC<AdminIntelligenceMentorTabProp
                         <button
                           type="button"
                           onClick={() => handleDeleteMessage(m.id)}
-                          className="hover:opacity-100 flex items-center gap-0.5 cursor-pointer transition-opacity text-red-400/80 hover:text-red-300"
+                          className="hover:opacity-100 flex items-center gap-0.5 cursor-pointer transition-opacity text-[#B82E3B] dark:text-red-400 hover:underline"
                           title="Delete this message"
                           aria-label="Delete message"
                         >
